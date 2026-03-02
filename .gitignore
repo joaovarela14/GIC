@@ -1,1 +1,85 @@
+# -------------------------
+# Node dependencies
+# -------------------------
+node_modules/
+.pnpm-store/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# -------------------------
+# Environment files
+# -------------------------
 .env
+.env.*.local
+.env.local
+.env.test
+.env.production
+
+# -------------------------
+# Logs
+# -------------------------
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# -------------------------
+# OS & Editor
+# -------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# -------------------------
+# Build / Dist outputs
+# -------------------------
+dist/
+build/
+.cache/
+.next/
+.out/
+coverage/
+*.tsbuildinfo
+
+# -------------------------
+# Docker / Local containers
+# -------------------------
+docker-compose.override.yml
+*.pid
+*.sock
+/tmp/
+
+# -------------------------
+# Medusa specific
+# -------------------------
+medusa-config.js
+medusa-config.ts
+medusa-build/
+medusa-dist/
+uploads/
+
+# -------------------------
+# Frontend / Vite / React
+# -------------------------
+public/build/
+.vite/
+*.local
+
+# -------------------------
+# Optional: IDE project files
+# -------------------------
+*.iml
+*.idea/
+
+# -------------------------
+# Redis / Postgres local data (if using local volumes)
+# -------------------------
+data/
+pgdata/
+redis-data/
