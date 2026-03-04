@@ -30,7 +30,7 @@ async function getRegionMap(cacheId: string) {
       },
       next: {
         revalidate: 3600,
-        tags: ["regions"],
+        tags: [`regions-${cacheId}`],
       },
       cache: "force-cache",
     }).then(async (response) => {
