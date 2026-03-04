@@ -11,10 +11,6 @@ pnpm-lock.yaml
 # Environment files
 # -------------------------
 .env
-.env.*.local
-.env.local
-.env.test
-.env.production
 
 # -------------------------
 # Logs
@@ -58,11 +54,6 @@ docker-compose.override.yml
 # -------------------------
 # Medusa specific
 # -------------------------
-medusa-config.js
-medusa-config.ts
-medusa-build/
-medusa-dist/
-uploads/
 
 # -------------------------
 # Frontend / Vite / React
