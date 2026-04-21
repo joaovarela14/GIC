@@ -83,7 +83,7 @@ export default async function bootstrapStore({ container }: ExecArgs) {
 
   if (!regions.length) {
     logger.info("No store-visible regions found. Running seed script...")
-    await seedDemoData({ container })
+    await seedDemoData({ container, args: [] })
     return
   }
 

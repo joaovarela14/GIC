@@ -22,5 +22,5 @@ if [ "${MEDUSA_RUN_SEED:-false}" = "true" ]; then
   npm run seed
 fi
 
-echo "Starting Medusa development server..."
-exec npm run dev
+echo "Starting Medusa production server..."
+exec npm run start

@@ -13,8 +13,11 @@ RUN npm ci --legacy-peer-deps
 # Copy source code
 COPY . .
 
+# Build the Medusa production bundle and admin dashboard
+RUN npm run build
+
 # Expose the port Medusa runs on
 EXPOSE 9000 5173
 
-# Start with migrations and then the development server
+# Start with migrations and then the production server
 ENTRYPOINT ["./start.sh"]

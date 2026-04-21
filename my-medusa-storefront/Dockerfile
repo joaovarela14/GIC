@@ -8,6 +8,8 @@ RUN npm ci --legacy-peer-deps
 
 COPY . .
 
+RUN npm run build
+
 EXPOSE 8000
 
-CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+CMD ["npm", "run", "start", "--", "-H", "0.0.0.0"]
