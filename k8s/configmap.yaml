@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pisofire-config
+  namespace: pisofire
+data:
+  POSTGRES_DB: medusa-store
+  POSTGRES_USER: postgres
+  DATABASE_URL: postgres://postgres:postgres@postgres:5432/medusa-store
+  REDIS_URL: redis://redis:6379
+  STORE_CORS: http://localhost:8000
+  ADMIN_CORS: http://localhost:9000,http://localhost:5173
+  AUTH_CORS: http://localhost:9000,http://localhost:5173
+  NODE_ENV: development
+  MEDUSA_RUN_SEED: "false"
+  MEDUSA_BACKEND_URL: http://medusa:9000
+  NEXT_PUBLIC_BASE_URL: http://localhost:8000
+  NEXT_PUBLIC_DEFAULT_REGION: us

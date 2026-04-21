@@ -1,11 +1,26 @@
 #!/bin/sh
 
-# Run migrations and start server
-echo "Running database migrations..."
-npx medusa db:migrate
+set -eu
 
-echo "Seeding database..."
-npm run seed || echo "Seeding failed, continuing..."
+max_attempts="${MEDUSA_MIGRATION_MAX_ATTEMPTS:-20}"
+attempt=1
+
+echo "Running database migrations..."
+until npx medusa db:migrate; do
+  if [ "$attempt" -ge "$max_attempts" ]; then
+    echo "Database migrations failed after $attempt attempts."
+    exit 1
+  fi
+
+  echo "Migration attempt $attempt failed. Retrying in 5 seconds..."
+  attempt=$((attempt + 1))
+  sleep 5
+done
+
+if [ "${MEDUSA_RUN_SEED:-false}" = "true" ]; then
+  echo "Seeding database..."
+  npm run seed
+fi
 
 echo "Starting Medusa development server..."
-npm run dev
+exec npm run dev

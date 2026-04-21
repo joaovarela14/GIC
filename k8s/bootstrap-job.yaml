@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bootstrap-store
+  namespace: pisofire
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        job: bootstrap-store
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-medusa
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              until wget -qO- http://medusa:9000/health; do
+                echo "Waiting for Medusa health endpoint..."
+                sleep 5
+              done
+      containers:
+        - name: bootstrap-store
+          image: my-medusa-store-medusa:latest
+          imagePullPolicy: IfNotPresent
+          terminationMessagePolicy: FallbackToLogsOnError
+          command:
+            - npm
+            - run
+            - bootstrap:store
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: NODE_ENV
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: REDIS_URL
+            - name: STORE_CORS
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: STORE_CORS
+            - name: ADMIN_CORS
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: ADMIN_CORS
+            - name: AUTH_CORS
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: AUTH_CORS
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pisofire-secrets
+                  key: JWT_SECRET
+            - name: COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pisofire-secrets
+                  key: COOKIE_SECRET

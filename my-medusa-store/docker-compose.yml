@@ -12,6 +12,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d medusa-store"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - medusa_network
 
@@ -22,6 +28,12 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     networks:
       - medusa_network
 
@@ -33,8 +45,10 @@ services:
     container_name: medusa_backend
     restart: unless-stopped
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "9000:9000"
       - "5173:5173"
@@ -42,11 +56,59 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/medusa-store
       - REDIS_URL=redis://redis:6379
+      - MEDUSA_RUN_SEED=false
     env_file:
       - .env
-    volumes:
-      - .:/server
-      - /server/node_modules
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9000/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - medusa_network
+
+  bootstrap:
+    build: .
+    container_name: medusa_bootstrap
+    restart: "no"
+    depends_on:
+      medusa:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/medusa-store
+      - REDIS_URL=redis://redis:6379
+    env_file:
+      - .env
+    entrypoint: ["npm", "run", "bootstrap:store"]
+    networks:
+      - medusa_network
+
+  storefront:
+    build:
+      context: ../my-medusa-storefront
+      dockerfile: Dockerfile
+    container_name: medusa_storefront
+    restart: unless-stopped
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      medusa:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../my-medusa-storefront/.env.local
+    environment:
+      - MEDUSA_BACKEND_URL=http://medusa:9000
+      - NEXT_PUBLIC_BASE_URL=http://localhost:8000
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8000').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
     networks:
       - medusa_network
 
