@@ -4,7 +4,8 @@ This directory contains a minimal M1 baseline for running PisoFire on Kubernetes
 
 - `postgres`
 - `redis`
-- `medusa`
+- `medusa` server
+- `medusa-worker`
 - `bootstrap-store` job
 - `storefront`
 
@@ -108,7 +109,7 @@ kubectl logs -n pisofire deployment/storefront
 
 ## Current Limits
 
-- Single replica for every component.
+- Single replica for every component, including the Medusa server and worker.
 - Postgres is a single instance backed by one PVC.
 - Redis is single-instance and ephemeral.
 - Store bootstrap depends on a one-shot Kubernetes job.

@@ -16,6 +16,10 @@ COPY . .
 # Build the Medusa production bundle and admin dashboard
 RUN npm run build
 
+# Fail the image build early if Medusa didn't produce the production server bundle.
+RUN test -f /server/.medusa/server/package.json \
+ && test -f /server/.medusa/server/public/admin/index.html
+
 # Expose the port Medusa runs on
 EXPOSE 9000 5173
 

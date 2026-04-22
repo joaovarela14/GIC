@@ -9,5 +9,6 @@ resources:
   - postgres.yaml
   - redis.yaml
   - medusa.yaml
+  - medusa-worker.yaml
   - bootstrap-job.yaml
   - storefront.yaml

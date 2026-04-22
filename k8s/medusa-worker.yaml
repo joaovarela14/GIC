@@ -1,25 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: medusa
+  name: medusa-worker
   namespace: pisofire
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: medusa
+      app: medusa-worker
   template:
     metadata:
       labels:
-        app: medusa
+        app: medusa-worker
     spec:
       containers:
-        - name: medusa
+        - name: medusa-worker
           image: my-medusa-store-medusa:latest
           imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 9000
-              name: http
           env:
             - name: NODE_ENV
               valueFrom:
@@ -52,16 +49,13 @@ spec:
                   name: pisofire-config
                   key: AUTH_CORS
             - name: MEDUSA_RUN_MIGRATIONS
-              value: "true"
-            - name: MEDUSA_RUN_SEED
-              valueFrom:
-                configMapKeyRef:
-                  name: pisofire-config
-                  key: MEDUSA_RUN_SEED
-            - name: MEDUSA_WORKER_MODE
-              value: server
-            - name: DISABLE_MEDUSA_ADMIN
               value: "false"
+            - name: MEDUSA_RUN_SEED
+              value: "false"
+            - name: MEDUSA_WORKER_MODE
+              value: worker
+            - name: DISABLE_MEDUSA_ADMIN
+              value: "true"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -72,32 +66,3 @@ spec:
                 secretKeyRef:
                   name: pisofire-secrets
                   key: COOKIE_SECRET
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 9000
-            initialDelaySeconds: 20
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 6
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 9000
-            initialDelaySeconds: 40
-            periodSeconds: 20
-            timeoutSeconds: 5
-            failureThreshold: 3
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: medusa
-  namespace: pisofire
-spec:
-  selector:
-    app: medusa
-  ports:
-    - name: http
-      port: 9000
-      targetPort: 9000
