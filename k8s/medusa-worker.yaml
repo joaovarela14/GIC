@@ -17,6 +17,9 @@ spec:
         - name: medusa-worker
           image: my-medusa-store-medusa:latest
           imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9000
+              name: http
           env:
             - name: NODE_ENV
               valueFrom:
@@ -66,3 +69,19 @@ spec:
                 secretKeyRef:
                   name: pisofire-secrets
                   key: COOKIE_SECRET
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9000
+            initialDelaySeconds: 40
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3

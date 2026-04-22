@@ -98,6 +98,12 @@ Storefront:
 curl -I http://localhost:8000
 ```
 
+Repeatable end-to-end smoke test:
+
+```bash
+./scripts/smoke-test-k8s.sh
+```
+
 Useful cluster checks:
 
 ```bash

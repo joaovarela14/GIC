@@ -17,3 +17,12 @@ The script:
 - imports them into the `pisofire` `k3d` cluster
 - refuses to run unless the current context is `k3d-pisofire`
 - applies the manifests in `k8s/`
+
+For M1 functional verification:
+
+```bash
+./scripts/smoke-test-k8s.sh
+```
+
+The M1 report draft is in [`docs/m1-report.md`](docs/m1-report.md).
+The screenshot and evidence checklist is in [`docs/m1-evidence-checklist.md`](docs/m1-evidence-checklist.md).
