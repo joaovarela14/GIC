@@ -42,6 +42,14 @@ Replace `pisofire` with your cluster name if needed.
 
 ## Deploy
 
+Build, import, and apply in one step:
+
+```bash
+./scripts/deploy-k8s.sh
+```
+
+Or run the steps manually.
+
 Apply the manifests:
 
 ```bash
@@ -104,6 +112,6 @@ kubectl logs -n pisofire deployment/storefront
 - Postgres is a single instance backed by one PVC.
 - Redis is single-instance and ephemeral.
 - Store bootstrap depends on a one-shot Kubernetes job.
-- The storefront runs in development mode inside the container because the current app build path fetches backend data at build time.
+- The stack is still a local single-node baseline, not a production-ready deployment.
 - The storefront retrieves the Medusa publishable key dynamically at runtime through a custom Medusa store route.
 - Secrets are development defaults and must be replaced before any real deployment.
