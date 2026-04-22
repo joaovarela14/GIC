@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getPublishableKey } from "@lib/util/publishable-key"
 
 const BACKEND_URL = process.env.MEDUSA_BACKEND_URL
-const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || "us"
+const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || "pt"
 
 const regionMapCache = {
   regionMap: new Map<string, HttpTypes.StoreRegion>(),
