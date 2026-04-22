@@ -70,6 +70,6 @@ public/build/
 # -------------------------
 # Redis / Postgres local data (if using local volumes)
 # -------------------------
-data/
-pgdata/
-redis-data/
+/data/
+/pgdata/
+/redis-data/
