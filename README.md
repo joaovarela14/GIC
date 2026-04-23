@@ -4,6 +4,15 @@
 
 [Storefront problems](https://docs.medusajs.com/resources/nextjs-starter)
 
+
+# TODO
+
+- [ ] - change the job, change the way the publishable key works
+
+
+
+
+
 ## Kubernetes Deploy
 
 From the repo root, after you manually switch `kubectl` to the correct local test context:
