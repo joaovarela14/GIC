@@ -8,6 +8,7 @@
 # TODO
 
 - [ ] - change the job, change the way the publishable key works
+- [ ] - we probably need MinIO
 
 
 
