@@ -26,6 +26,11 @@ spec:
                 configMapKeyRef:
                   name: pisofire-config
                   key: MEDUSA_BACKEND_URL
+            - name: NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
             - name: NEXT_PUBLIC_BASE_URL
               valueFrom:
                 configMapKeyRef:

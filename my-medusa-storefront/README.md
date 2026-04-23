@@ -76,6 +76,11 @@ cd nextjs-starter-medusa/
 mv .env.template .env.local
 ```
 
+To avoid the extra runtime lookup to `GET /publishable-key`, set
+`NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` in `.env.local` to your existing Medusa
+publishable key. If it is not set, the storefront falls back to fetching the
+key from the backend at runtime.
+
 ### Install dependencies
 
 Use Yarn to install all dependencies.

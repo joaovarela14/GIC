@@ -1,4 +1,9 @@
-let cachedPublishableKey: string | null = null
+const configuredPublishableKey =
+  process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||
+  process.env.MEDUSA_PUBLISHABLE_KEY
+
+let cachedPublishableKey: string | null =
+  configuredPublishableKey?.trim() || null
 
 export async function getPublishableKey(baseUrl: string): Promise<string> {
   if (cachedPublishableKey) {

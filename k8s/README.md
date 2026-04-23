@@ -120,5 +120,5 @@ kubectl logs -n pisofire deployment/storefront
 - Redis is single-instance and ephemeral.
 - Store bootstrap depends on a one-shot Kubernetes job.
 - The stack is still a local single-node baseline, not a production-ready deployment.
-- The storefront retrieves the Medusa publishable key dynamically at runtime through a custom Medusa store route.
+- The storefront can use `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` when configured, but otherwise still retrieves the Medusa publishable key dynamically at runtime through a custom Medusa store route.
 - Secrets are development defaults and must be replaced before any real deployment.
