@@ -1,4 +1,4 @@
-## PisoFire typeshi 👟🔥
+## PisoFire 👟🔥
 
 [Docker problems](https://docs.medusajs.com/learn/installation/docker)
 
@@ -9,8 +9,6 @@
 
 - [ ] - change the job, change the way the publishable key works
 - [ ] - we probably need MinIO
-
-
 
 
 
@@ -34,5 +32,3 @@ For M1 functional verification:
 ./scripts/smoke-test-k8s.sh
 ```
 
-The M1 report draft is in [`docs/m1-report.md`](docs/m1-report.md).
-The screenshot and evidence checklist is in [`docs/m1-evidence-checklist.md`](docs/m1-evidence-checklist.md).
