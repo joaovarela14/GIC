@@ -86,16 +86,34 @@ kubectl port-forward -n pisofire svc/medusa 9000:9000
 
 ## Smoke Checks
 
-Backend health:
+Backend health and readiness:
 
 ```bash
 curl http://localhost:9000/health
+curl http://localhost:9000/readyz
+curl http://localhost:9000/store-readyz
 ```
 
-Storefront:
+Storefront health and readiness:
 
 ```bash
-curl -I http://localhost:8000
+curl http://localhost:8000/api/health
+curl http://localhost:8000/api/ready
+curl -I http://localhost:8000/pt
+```
+
+Service-level checks from inside the cluster:
+
+```bash
+kubectl run -n pisofire service-smoke \
+  --rm -i --restart=Never \
+  --image=busybox:1.36 \
+  -- sh -ec '
+    wget -qO- http://medusa:9000/readyz
+    wget -qO- http://medusa:9000/store-readyz
+    wget -qO- http://storefront:8000/api/ready
+    wget -qO- http://storefront:8000/pt >/dev/null
+  '
 ```
 
 Repeatable end-to-end smoke test:

@@ -19,8 +19,8 @@ spec:
             - sh
             - -c
             - |
-              until wget -qO- http://medusa:9000/health; do
-                echo "Waiting for Medusa health endpoint..."
+              until wget -qO- http://medusa:9000/readyz; do
+                echo "Waiting for Medusa readiness endpoint..."
                 sleep 5
               done
       containers:
