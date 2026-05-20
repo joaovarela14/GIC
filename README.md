@@ -32,3 +32,22 @@ For M1 functional verification:
 ./scripts/smoke-test-k8s.sh
 ```
 
+## Department Tenant Deploy
+
+The teacher-provided kubeconfig is for the shared tenant namespace, not for local
+`k3d`. Keep `tenant-pisofire-kubeconfig.yaml` uncommitted.
+
+Build and push registry images, then deploy the tenant overlay when ready:
+
+```bash
+cp k8s/tenant/tenant-secrets.env.example k8s/tenant/tenant-secrets.env
+# Edit k8s/tenant/tenant-secrets.env with real random values before deploying.
+# DATABASE_URL must use the same password as POSTGRES_PASSWORD.
+IMAGE_TAG=$(git rev-parse --short HEAD) ./scripts/build-push-tenant-images.sh
+IMAGE_TAG=$(git rev-parse --short HEAD) ./scripts/render-tenant-k8s.sh
+IMAGE_TAG=$(git rev-parse --short HEAD) ./scripts/deploy-tenant-k8s.sh
+./scripts/smoke-test-tenant-k8s.sh
+```
+
+The tenant defaults use `registry.deti/tenant-pisofire`.
+`k8s/tenant/tenant-secrets.env` is ignored by git and must not be committed.

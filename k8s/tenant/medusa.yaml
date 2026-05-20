@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medusa
+  namespace: pisofire
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: medusa
+  template:
+    metadata:
+      labels:
+        app: medusa
+    spec:
+      containers:
+        - name: medusa
+          image: my-medusa-store-medusa:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9000
+              name: http
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: NODE_ENV
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pisofire-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: REDIS_URL
+            - name: STORE_CORS
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: STORE_CORS
+            - name: ADMIN_CORS
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: ADMIN_CORS
+            - name: AUTH_CORS
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: AUTH_CORS
+            - name: MEDUSA_RUN_MIGRATIONS
+              value: "true"
+            - name: MEDUSA_RUN_SEED
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: MEDUSA_RUN_SEED
+            - name: MEDUSA_WORKER_MODE
+              value: server
+            - name: DISABLE_MEDUSA_ADMIN
+              value: "false"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pisofire-secrets
+                  key: JWT_SECRET
+            - name: COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pisofire-secrets
+                  key: COOKIE_SECRET
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9000
+            initialDelaySeconds: 40
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: medusa
+  namespace: pisofire
+spec:
+  selector:
+    app: medusa
+  ports:
+    - name: http
+      port: 9000
+      targetPort: 9000

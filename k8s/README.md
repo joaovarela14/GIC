@@ -11,6 +11,9 @@ This directory contains a minimal M1 baseline for running PisoFire on Kubernetes
 
 It uses plain manifests with `kustomization.yaml` so the deployment stays easy to debug.
 
+The local baseline targets `k3d`. The department cluster overlay lives in
+`k8s/tenant` and targets the pre-created `tenant-pisofire` namespace.
+
 ## Safety
 
 Do not run any `kubectl apply` command until you are sure you are pointing at the intended local test cluster.
