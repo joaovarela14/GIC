@@ -31,7 +31,7 @@ if [ ! -f "$SECRETS_FILE" ]; then
   exit 1
 fi
 
-for required_key in POSTGRES_PASSWORD DATABASE_URL JWT_SECRET COOKIE_SECRET REVALIDATE_SECRET; do
+for required_key in POSTGRES_PASSWORD DATABASE_URL JWT_SECRET COOKIE_SECRET REVALIDATE_SECRET MEDUSA_ADMIN_EMAIL MEDUSA_ADMIN_PASSWORD; do
   if ! grep -q "^$required_key=" "$SECRETS_FILE"; then
     echo "Missing $required_key in $SECRETS_FILE" >&2
     exit 1

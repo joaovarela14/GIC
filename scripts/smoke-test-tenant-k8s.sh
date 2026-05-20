@@ -39,6 +39,7 @@ kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=ava
 
 echo "Waiting for bootstrap job completion"
 kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=complete --timeout=240s job/bootstrap-store >/dev/null
+kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=complete --timeout=240s job/bootstrap-admin >/dev/null
 
 echo "Checking backend and storefront health through Ingress"
 MEDUSA_STATUS="$(curl -fsS -o /tmp/pisofire-tenant-medusa-health.out -w '%{http_code}' "$MEDUSA_BASE_URL/health")"
@@ -56,6 +57,73 @@ case "$STOREFRONT_STATUS" in
     exit 1
     ;;
 esac
+
+echo "Checking Medusa admin authentication through Ingress"
+ADMIN_EMAIL="${MEDUSA_ADMIN_EMAIL:-}"
+ADMIN_PASSWORD="${MEDUSA_ADMIN_PASSWORD:-}"
+
+if [ -z "$ADMIN_EMAIL" ]; then
+  ADMIN_EMAIL_B64="$(kubectl --kubeconfig "$KUBECONFIG_FILE" get secret -n "$NAMESPACE" pisofire-secrets -o jsonpath='{.data.MEDUSA_ADMIN_EMAIL}' 2>/dev/null || true)"
+  if [ -n "$ADMIN_EMAIL_B64" ]; then
+    ADMIN_EMAIL="$(printf '%s' "$ADMIN_EMAIL_B64" | base64 -d)"
+  fi
+fi
+
+if [ -z "$ADMIN_PASSWORD" ]; then
+  ADMIN_PASSWORD_B64="$(kubectl --kubeconfig "$KUBECONFIG_FILE" get secret -n "$NAMESPACE" pisofire-secrets -o jsonpath='{.data.MEDUSA_ADMIN_PASSWORD}' 2>/dev/null || true)"
+  if [ -n "$ADMIN_PASSWORD_B64" ]; then
+    ADMIN_PASSWORD="$(printf '%s' "$ADMIN_PASSWORD_B64" | base64 -d)"
+  fi
+fi
+
+if [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PASSWORD" ]; then
+  echo "Missing Medusa admin smoke-test credentials." >&2
+  exit 1
+fi
+
+ADMIN_LOGIN_PAYLOAD="$(jq -cn --arg email "$ADMIN_EMAIL" --arg password "$ADMIN_PASSWORD" '{email: $email, password: $password}')"
+ADMIN_TOKEN="$(
+  curl -fsS -X POST "$MEDUSA_BASE_URL/auth/user/emailpass" \
+    -H 'content-type: application/json' \
+    --data "$ADMIN_LOGIN_PAYLOAD" | jq -r '.token // empty'
+)"
+
+if [ -z "$ADMIN_TOKEN" ]; then
+  echo "Medusa admin login did not return a token." >&2
+  exit 1
+fi
+
+ADMIN_SESSION_STATUS="$(
+  curl -sS -o /tmp/pisofire-tenant-admin-session.out \
+    -D /tmp/pisofire-tenant-admin-session.headers \
+    -w '%{http_code}' \
+    -c /tmp/pisofire-tenant-admin-cookies.txt \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -X POST "$MEDUSA_BASE_URL/auth/session"
+)"
+
+if [ "$ADMIN_SESSION_STATUS" != "200" ]; then
+  echo "Unexpected Medusa admin session status: $ADMIN_SESSION_STATUS" >&2
+  cat /tmp/pisofire-tenant-admin-session.out >&2 || true
+  exit 1
+fi
+
+if printf '%s' "$MEDUSA_BASE_URL" | grep -q '^http://' && grep -iq '^set-cookie:.*;[[:space:]]*secure' /tmp/pisofire-tenant-admin-session.headers; then
+  echo "Medusa admin session cookie is marked Secure on an HTTP URL." >&2
+  exit 1
+fi
+
+ADMIN_ME_STATUS="$(
+  curl -sS -o /tmp/pisofire-tenant-admin-me.out -w '%{http_code}' \
+    -b /tmp/pisofire-tenant-admin-cookies.txt \
+    "$MEDUSA_BASE_URL/admin/users/me"
+)"
+
+if [ "$ADMIN_ME_STATUS" != "200" ]; then
+  echo "Unexpected Medusa admin users/me status: $ADMIN_ME_STATUS" >&2
+  cat /tmp/pisofire-tenant-admin-me.out >&2 || true
+  exit 1
+fi
 
 echo "Running end-to-end store API journey"
 PUBLISHABLE_KEY="$(curl -fsS "$MEDUSA_BASE_URL/publishable-key" | jq -r '.publishable_api_key')"
@@ -117,4 +185,5 @@ printf '%s\n' "Tenant smoke test passed" \
   "Namespace: $NAMESPACE" \
   "Backend health: $MEDUSA_STATUS" \
   "Storefront status: $STOREFRONT_STATUS" \
+  "Admin authentication: passed" \
   "Order: $ORDER_ID"
