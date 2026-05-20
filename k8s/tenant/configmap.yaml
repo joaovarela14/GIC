@@ -6,18 +6,17 @@ metadata:
 data:
   POSTGRES_DB: medusa-store
   POSTGRES_USER: postgres
-  DATABASE_URL: postgres://postgres:postgres@postgres:5432/medusa-store
   REDIS_URL: redis://redis:6379
   CACHE_REDIS_URL: redis://redis:6379
   EVENTS_REDIS_URL: redis://redis:6379
   WE_REDIS_URL: redis://redis:6379
   LOCKING_REDIS_URL: redis://redis:6379
-  STORE_CORS: http://localhost:8000
-  ADMIN_CORS: http://localhost:9000,http://localhost:5173
-  AUTH_CORS: http://localhost:9000,http://localhost:5173
+  STORE_CORS: http://pisofire.deti,http://localhost:8000
+  ADMIN_CORS: http://medusa-pisofire.deti,http://localhost:9000,http://localhost:5173
+  AUTH_CORS: http://medusa-pisofire.deti,http://localhost:9000,http://localhost:5173
   NODE_ENV: production
   MEDUSA_RUN_SEED: "false"
   MEDUSA_BACKEND_URL: http://medusa:9000
   NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ""
-  NEXT_PUBLIC_BASE_URL: http://localhost:8000
-  NEXT_PUBLIC_DEFAULT_REGION: pt
+  NEXT_PUBLIC_BASE_URL: http://pisofire.deti
+  NEXT_PUBLIC_DEFAULT_REGION: dk

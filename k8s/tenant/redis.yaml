@@ -21,19 +21,13 @@ spec:
             - containerPort: 6379
               name: redis
           readinessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - redis-cli -h 127.0.0.1 ping | grep PONG
+            tcpSocket:
+              port: 6379
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - redis-cli -h 127.0.0.1 ping | grep PONG
+            tcpSocket:
+              port: 6379
             initialDelaySeconds: 15
             periodSeconds: 20
 ---

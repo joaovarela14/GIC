@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: tenant-pisofire
+resources:
+  - configmap.yaml
+  - postgres-pvc.yaml
+  - postgres.yaml
+  - redis.yaml
+  - medusa.yaml
+  - medusa-worker.yaml
+  - bootstrap-job.yaml
+  - storefront.yaml
+  - ingress.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+secretGenerator:
+  - name: pisofire-secrets
+    envs:
+      - tenant-secrets.env
+images:
+  - name: my-medusa-store-medusa
+    newName: registry.deti/tenant-pisofire/medusa
+    newTag: latest
+  - name: my-medusa-store-storefront
+    newName: registry.deti/tenant-pisofire/storefront
+    newTag: latest

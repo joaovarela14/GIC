@@ -1,16 +1,18 @@
-apiVersion: batch/v1
-kind: Job
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: bootstrap-store
+  name: medusa-worker
   namespace: pisofire
 spec:
-  backoffLimit: 0
+  replicas: 1
+  selector:
+    matchLabels:
+      app: medusa-worker
   template:
     metadata:
       labels:
-        job: bootstrap-store
+        app: medusa-worker
     spec:
-      restartPolicy: Never
       initContainers:
         - name: wait-for-medusa
           image: busybox:1.36
@@ -19,19 +21,17 @@ spec:
             - sh
             - -c
             - |
-              until wget -qO- http://medusa:9000/readyz; do
-                echo "Waiting for Medusa readiness endpoint..."
+              until wget -qO- http://medusa:9000/health; do
+                echo "Waiting for Medusa health endpoint..."
                 sleep 5
               done
       containers:
-        - name: bootstrap-store
+        - name: medusa-worker
           image: my-medusa-store-medusa:latest
           imagePullPolicy: IfNotPresent
-          terminationMessagePolicy: FallbackToLogsOnError
-          command:
-            - npm
-            - run
-            - bootstrap:store
+          ports:
+            - containerPort: 9000
+              name: http
           env:
             - name: NODE_ENV
               valueFrom:
@@ -40,8 +40,8 @@ spec:
                   key: NODE_ENV
             - name: DATABASE_URL
               valueFrom:
-                configMapKeyRef:
-                  name: pisofire-config
+                secretKeyRef:
+                  name: pisofire-secrets
                   key: DATABASE_URL
             - name: REDIS_URL
               valueFrom:
@@ -63,6 +63,14 @@ spec:
                 configMapKeyRef:
                   name: pisofire-config
                   key: AUTH_CORS
+            - name: MEDUSA_RUN_MIGRATIONS
+              value: "false"
+            - name: MEDUSA_RUN_SEED
+              value: "false"
+            - name: MEDUSA_WORKER_MODE
+              value: worker
+            - name: DISABLE_MEDUSA_ADMIN
+              value: "true"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -73,3 +81,19 @@ spec:
                 secretKeyRef:
                   name: pisofire-secrets
                   key: COOKIE_SECRET
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9000
+            initialDelaySeconds: 40
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3

@@ -11,6 +11,9 @@ pnpm-lock.yaml
 # -------------------------
 .env
 
+tenant-pisofire-kubeconfig.yaml
+k8s/tenant/tenant-secrets.env
+
 # -------------------------
 # Logs
 # -------------------------

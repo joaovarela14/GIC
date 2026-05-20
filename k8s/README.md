@@ -11,6 +11,9 @@ This directory contains a minimal M1 baseline for running PisoFire on Kubernetes
 
 It uses plain manifests with `kustomization.yaml` so the deployment stays easy to debug.
 
+The local baseline targets `k3d`. The department cluster overlay lives in
+`k8s/tenant` and targets the pre-created `tenant-pisofire` namespace.
+
 ## Safety
 
 Do not run any `kubectl apply` command until you are sure you are pointing at the intended local test cluster.
@@ -86,16 +89,34 @@ kubectl port-forward -n pisofire svc/medusa 9000:9000
 
 ## Smoke Checks
 
-Backend health:
+Backend health and readiness:
 
 ```bash
 curl http://localhost:9000/health
+curl http://localhost:9000/readyz
+curl http://localhost:9000/store-readyz
 ```
 
-Storefront:
+Storefront health and readiness:
 
 ```bash
-curl -I http://localhost:8000
+curl http://localhost:8000/api/health
+curl http://localhost:8000/api/ready
+curl -I http://localhost:8000/pt
+```
+
+Service-level checks from inside the cluster:
+
+```bash
+kubectl run -n pisofire service-smoke \
+  --rm -i --restart=Never \
+  --image=busybox:1.36 \
+  -- sh -ec '
+    wget -qO- http://medusa:9000/readyz
+    wget -qO- http://medusa:9000/store-readyz
+    wget -qO- http://storefront:8000/api/ready
+    wget -qO- http://storefront:8000/pt >/dev/null
+  '
 ```
 
 Repeatable end-to-end smoke test:

@@ -19,8 +19,8 @@ spec:
             - sh
             - -c
             - |
-              until wget -qO- http://medusa:9000/readyz; do
-                echo "Waiting for Medusa readiness endpoint..."
+              until wget -qO- http://medusa:9000/health; do
+                echo "Waiting for Medusa health endpoint..."
                 sleep 5
               done
       containers:
@@ -40,8 +40,8 @@ spec:
                   key: NODE_ENV
             - name: DATABASE_URL
               valueFrom:
-                configMapKeyRef:
-                  name: pisofire-config
+                secretKeyRef:
+                  name: pisofire-secrets
                   key: DATABASE_URL
             - name: REDIS_URL
               valueFrom:
