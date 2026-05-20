@@ -87,7 +87,8 @@ k3d image import "$STOREFRONT_IMAGE" -c "$CLUSTER_NAME"
 NAMESPACE_EXISTS=false
 if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
   NAMESPACE_EXISTS=true
-  echo "Deleting previous bootstrap job so immutable job template changes can apply"
+  echo "Deleting previous bootstrap jobs so immutable job template changes can apply"
+  kubectl delete job -n "$NAMESPACE" bootstrap-admin --ignore-not-found
   kubectl delete job -n "$NAMESPACE" bootstrap-store --ignore-not-found
 fi
 

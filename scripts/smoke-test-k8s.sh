@@ -60,6 +60,7 @@ ensure_port_forward_running() {
 require_command kubectl
 require_command curl
 require_command jq
+require_command base64
 
 CURRENT_CONTEXT="$(kubectl config current-context 2>/dev/null || true)"
 CURRENT_CLUSTER="$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)"
@@ -144,10 +145,11 @@ for deployment in postgres redis medusa medusa-worker storefront; do
   fi
 done
 
-echo "Waiting for bootstrap job completion"
-if ! kubectl wait -n "$NAMESPACE" --for=condition=complete --timeout=180s job/bootstrap-store >/dev/null; then
-  echo "Bootstrap job did not complete." >&2
+echo "Waiting for bootstrap jobs completion"
+if ! kubectl wait -n "$NAMESPACE" --for=condition=complete --timeout=180s job/bootstrap-admin job/bootstrap-store >/dev/null; then
+  echo "Bootstrap jobs did not complete." >&2
   kubectl get pods -n "$NAMESPACE" >&2 || true
+  kubectl logs -n "$NAMESPACE" job/bootstrap-admin >&2 || true
   kubectl logs -n "$NAMESPACE" job/bootstrap-store >&2 || true
   show_recent_events
   exit 1
@@ -196,6 +198,59 @@ fi
 if [ "$STOREFRONT_READY_STATUS" != "200" ]; then
   echo "Unexpected storefront readiness status: $STOREFRONT_READY_STATUS" >&2
   cat /tmp/pisofire-storefront-ready.out >&2 || true
+  exit 1
+fi
+
+echo "Checking Medusa admin authentication"
+ADMIN_EMAIL="${MEDUSA_ADMIN_EMAIL:-$(kubectl get configmap -n "$NAMESPACE" pisofire-config -o jsonpath='{.data.MEDUSA_ADMIN_EMAIL}' 2>/dev/null || true)}"
+ADMIN_PASSWORD="${MEDUSA_ADMIN_PASSWORD:-}"
+
+if [ -z "$ADMIN_PASSWORD" ]; then
+  ADMIN_PASSWORD_B64="$(kubectl get secret -n "$NAMESPACE" pisofire-secrets -o jsonpath='{.data.MEDUSA_ADMIN_PASSWORD}' 2>/dev/null || true)"
+  if [ -n "$ADMIN_PASSWORD_B64" ]; then
+    ADMIN_PASSWORD="$(printf '%s' "$ADMIN_PASSWORD_B64" | base64 -d)"
+  fi
+fi
+
+if [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PASSWORD" ]; then
+  echo "Missing Medusa admin smoke-test credentials." >&2
+  exit 1
+fi
+
+ADMIN_TOKEN="$(
+  ADMIN_LOGIN_PAYLOAD="$(jq -cn --arg email "$ADMIN_EMAIL" --arg password "$ADMIN_PASSWORD" '{email: $email, password: $password}')"
+  curl -fsS -X POST "$MEDUSA_BASE_URL/auth/user/emailpass" \
+    -H 'content-type: application/json' \
+    --data "$ADMIN_LOGIN_PAYLOAD" | jq -r '.token // empty'
+)"
+
+if [ -z "$ADMIN_TOKEN" ]; then
+  echo "Medusa admin login did not return a token." >&2
+  exit 1
+fi
+
+ADMIN_SESSION_STATUS="$(
+  curl -sS -o /tmp/pisofire-admin-session.out -w '%{http_code}' \
+    -c /tmp/pisofire-admin-cookies.txt \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -X POST "$MEDUSA_BASE_URL/auth/session"
+)"
+
+if [ "$ADMIN_SESSION_STATUS" != "200" ]; then
+  echo "Unexpected Medusa admin session status: $ADMIN_SESSION_STATUS" >&2
+  cat /tmp/pisofire-admin-session.out >&2 || true
+  exit 1
+fi
+
+ADMIN_ME_STATUS="$(
+  curl -sS -o /tmp/pisofire-admin-me.out -w '%{http_code}' \
+    -b /tmp/pisofire-admin-cookies.txt \
+    "$MEDUSA_BASE_URL/admin/users/me"
+)"
+
+if [ "$ADMIN_ME_STATUS" != "200" ]; then
+  echo "Unexpected Medusa admin users/me status: $ADMIN_ME_STATUS" >&2
+  cat /tmp/pisofire-admin-me.out >&2 || true
   exit 1
 fi
 
@@ -284,6 +339,7 @@ printf '%s\n' "Smoke test passed" \
   "Store readiness: $STORE_READY_STATUS" \
   "Storefront health: $STOREFRONT_HEALTH_STATUS" \
   "Storefront readiness: $STOREFRONT_READY_STATUS" \
+  "Admin authentication: passed" \
   "Storefront page: $STOREFRONT_PAGE_STATUS" \
   "Service DNS checks: passed" \
   "Region: $REGION_ID" \

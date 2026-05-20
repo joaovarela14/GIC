@@ -6,6 +6,7 @@ This directory contains a minimal M1 baseline for running PisoFire on Kubernetes
 - `redis`
 - `medusa` server
 - `medusa-worker`
+- `bootstrap-admin` job
 - `bootstrap-store` job
 - `storefront`
 
@@ -66,12 +67,16 @@ Watch the rollout:
 kubectl get pods -n pisofire -w
 ```
 
-Wait for the bootstrap job to complete successfully:
+Wait for the bootstrap jobs to complete successfully:
 
 ```bash
 kubectl get jobs -n pisofire
+kubectl logs -n pisofire job/bootstrap-admin
 kubectl logs -n pisofire job/bootstrap-store
 ```
+
+`bootstrap-admin` creates the local Medusa Admin demo user. If that user already
+exists, the job treats it as success so repeated deploys stay idempotent.
 
 ## Access
 
@@ -85,6 +90,16 @@ Optional: port-forward the backend too:
 
 ```bash
 kubectl port-forward -n pisofire svc/medusa 9000:9000
+```
+
+Medusa Admin is available at `http://localhost:9000/app`.
+
+Development admin credentials are bootstrapped by `bootstrap-admin`:
+
+```text
+URL: http://localhost:9000/app
+Email: admin@pisofire.local
+Password: PisoFire123!
 ```
 
 ## Smoke Checks
@@ -125,6 +140,40 @@ Repeatable end-to-end smoke test:
 ./scripts/smoke-test-k8s.sh
 ```
 
+The smoke test:
+
+- verifies the current `kubectl` cluster is the expected local `k3d` cluster.
+- checks Kubernetes API connectivity and node disk pressure before testing the app.
+- waits for all core deployments and for both bootstrap jobs.
+- checks backend health/readiness through `/health`, `/readyz` and `/store-readyz`.
+- checks storefront health/readiness through `/api/health` and `/api/ready`.
+- verifies Medusa Admin login by creating a session cookie and calling `/admin/users/me`.
+- runs a checkout path from product discovery to order creation.
+- validates in-cluster Service DNS by calling `medusa` and `storefront` from a temporary BusyBox pod.
+
+Successful output ends with:
+
+```text
+Smoke test passed
+Backend health: 200
+Backend readiness: 200
+Store readiness: 200
+Storefront health: 200
+Storefront readiness: 200
+Admin authentication: passed
+Service DNS checks: passed
+Order: order_...
+```
+
+`Storefront page: 307` is acceptable because the first localized storefront
+request can redirect while the region/cache cookie is established.
+
+If local ports are busy, override them:
+
+```bash
+MEDUSA_PORT=19000 STOREFRONT_PORT=18000 ./scripts/smoke-test-k8s.sh
+```
+
 Useful cluster checks:
 
 ```bash
@@ -139,7 +188,7 @@ kubectl logs -n pisofire deployment/storefront
 - Single replica for every component, including the Medusa server and worker.
 - Postgres is a single instance backed by one PVC.
 - Redis is single-instance and ephemeral.
-- Store bootstrap depends on a one-shot Kubernetes job.
+- Store and admin bootstrap depend on one-shot Kubernetes jobs.
 - The stack is still a local single-node baseline, not a production-ready deployment.
 - The storefront can use `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` when configured, but otherwise still retrieves the Medusa publishable key dynamically at runtime through a custom Medusa store route.
 - Secrets are development defaults and must be replaced before any real deployment.

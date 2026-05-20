@@ -10,5 +10,6 @@ resources:
   - redis.yaml
   - medusa.yaml
   - medusa-worker.yaml
+  - bootstrap-admin-job.yaml
   - bootstrap-job.yaml
   - storefront.yaml

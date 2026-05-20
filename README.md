@@ -23,13 +23,83 @@ From the repo root, after you manually switch `kubectl` to the correct local tes
 The script:
 - builds the Medusa and storefront images
 - imports them into the `pisofire` `k3d` cluster
-- refuses to run unless the current context is `k3d-pisofire`
+- refuses to run unless the current cluster is the expected `k3d` cluster
+- imports dependency images used by the manifests
+- recreates the bootstrap jobs when redeploying
 - applies the manifests in `k8s/`
+
+The local Kubernetes deployment includes two bootstrap jobs:
+
+- `bootstrap-store`: seeds/repairs store data such as regions, products, shipping, payment and the publishable key.
+- `bootstrap-admin`: creates the Medusa Admin demo user. If the user already exists, the job exits successfully.
+
+Medusa Admin demo credentials:
+
+```text
+URL: http://localhost:9000/app
+Email: admin@pisofire.local
+Password: PisoFire123!
+```
+
+To open the Admin from the local `k3d` cluster:
+
+```bash
+kubectl port-forward -n pisofire svc/medusa 9000:9000
+```
+
+If login succeeds but returns to the login page, clear browser site data for `localhost:9000` or use a private window. The local Kubernetes config sets non-secure SameSite cookies so Admin sessions work over `http://localhost:9000`.
+
+## Kubernetes Smoke Test
 
 For M1 functional verification:
 
 ```bash
 ./scripts/smoke-test-k8s.sh
+```
+
+The smoke test validates the deployment through Kubernetes Services, not only through container ports. It:
+
+- confirms the current `kubectl` cluster is the expected `k3d` cluster
+- fails early if the Kubernetes API is unreachable or nodes are under disk pressure
+- waits for `postgres`, `redis`, `medusa`, `medusa-worker` and `storefront` rollouts
+- waits for `bootstrap-admin` and `bootstrap-store` to complete
+- starts temporary local port-forwards to Medusa and the storefront
+- checks Medusa `/health`, `/readyz` and `/store-readyz`
+- checks storefront `/api/health` and `/api/ready`
+- tests Medusa Admin authentication with the bootstrapped admin user and verifies `/admin/users/me`
+- runs a store checkout path: publishable key, region, product, variant, cart, shipping, payment collection and order creation
+- runs in-cluster Service DNS checks from a temporary BusyBox pod against `medusa` and `storefront`
+
+When it succeeds, expect output like:
+
+```text
+Smoke test passed
+Context: k3d-pisofire
+Namespace: pisofire
+Backend health: 200
+Backend readiness: 200
+Store readiness: 200
+Storefront health: 200
+Storefront readiness: 200
+Admin authentication: passed
+Storefront page: 307
+Service DNS checks: passed
+Region: reg_...
+Product: prod_...
+Variant: variant_...
+Cart: cart_...
+Shipping option: so_...
+Payment provider: pp_system_default
+Payment collection: pay_col_...
+Order: order_...
+```
+
+`Storefront page: 307` is expected in this baseline because the first storefront request can redirect while the storefront sets the Medusa region/cache cookie.
+
+If ports `9000` or `8000` are already in use by Docker Compose or a manual port-forward, either stop that process or run the smoke test on alternative local ports:
+
+```bash
+MEDUSA_PORT=19000 STOREFRONT_PORT=18000 ./scripts/smoke-test-k8s.sh
 ```
 
 ## Department Tenant Deploy

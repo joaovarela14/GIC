@@ -3,6 +3,12 @@ import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 const sharedRedisUrl = process.env.REDIS_URL
+const cookieSecure =
+  process.env.COOKIE_SECURE !== undefined
+    ? process.env.COOKIE_SECURE === "true"
+    : process.env.NODE_ENV === "production"
+const cookieSameSite = (process.env.COOKIE_SAME_SITE ||
+  (cookieSecure ? "none" : "lax")) as "strict" | "lax" | "none"
 
 module.exports = defineConfig({
   projectConfig: {
@@ -17,6 +23,10 @@ module.exports = defineConfig({
       authCors: process.env.AUTH_CORS!,
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
+    },
+    cookieOptions: {
+      secure: cookieSecure,
+      sameSite: cookieSameSite,
     },
     databaseDriverOptions: {
       ssl: false,
