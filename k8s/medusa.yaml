@@ -72,9 +72,17 @@ spec:
                 secretKeyRef:
                   name: pisofire-secrets
                   key: COOKIE_SECRET
-          readinessProbe:
+          startupProbe:
             httpGet:
               path: /health
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
               port: 9000
             initialDelaySeconds: 20
             periodSeconds: 10
