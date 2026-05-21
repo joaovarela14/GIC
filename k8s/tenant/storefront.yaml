@@ -41,6 +41,11 @@ spec:
                 configMapKeyRef:
                   name: pisofire-config
                   key: NEXT_PUBLIC_DEFAULT_REGION
+            - name: COOKIE_SECURE
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: COOKIE_SECURE
             - name: REVALIDATE_SECRET
               valueFrom:
                 secretKeyRef:
