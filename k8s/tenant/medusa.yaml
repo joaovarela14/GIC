@@ -104,6 +104,8 @@ kind: Service
 metadata:
   name: medusa
   namespace: pisofire
+  labels:
+    app: medusa
 spec:
   selector:
     app: medusa
