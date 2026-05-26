@@ -12,9 +12,9 @@ spec:
         - alert: PisofireHighErrorRate
           expr: |
             (
-              sum(rate(medusa_http_requests_total{tenant="pisofire", status=~"5.."}[5m]))
+              sum(rate(pisofire_medusa_http_requests_total{status_code=~"5.."}[5m]))
               /
-              sum(rate(medusa_http_requests_total{tenant="pisofire"}[5m]))
+              sum(rate(pisofire_medusa_http_requests_total[5m]))
             ) > 0.05
           for: 2m
           labels:
@@ -27,7 +27,7 @@ spec:
         - alert: PisofireHighLatency
           expr: |
             histogram_quantile(0.95,
-              sum(rate(medusa_http_request_duration_seconds_bucket{tenant="pisofire"}[5m])) by (le)
+              sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[5m])) by (le)
             ) > 1.0
           for: 2m
           labels:

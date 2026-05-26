@@ -22,7 +22,7 @@ data:
           "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "sum(rate(medusa_http_requests_total{tenant=\"pisofire\"}[1m])) by (route)",
+              "expr": "sum(rate(pisofire_medusa_http_requests_total[1m])) by (route)",
               "legendFormat": "{{route}}"
             }
           ]
@@ -34,7 +34,7 @@ data:
           "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "100 * sum(rate(medusa_http_requests_total{tenant=\"pisofire\", status=~\"5..\"}[1m])) / sum(rate(medusa_http_requests_total{tenant=\"pisofire\"}[1m]))",
+              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{status_code=~\"5..\"}[1m])) / sum(rate(pisofire_medusa_http_requests_total[1m]))",
               "legendFormat": "error rate %"
             }
           ]
@@ -46,15 +46,15 @@ data:
           "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "histogram_quantile(0.50, sum(rate(medusa_http_request_duration_seconds_bucket{tenant=\"pisofire\"}[1m])) by (le))",
+              "expr": "histogram_quantile(0.50, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[1m])) by (le))",
               "legendFormat": "p50"
             },
             {
-              "expr": "histogram_quantile(0.95, sum(rate(medusa_http_request_duration_seconds_bucket{tenant=\"pisofire\"}[1m])) by (le))",
+              "expr": "histogram_quantile(0.95, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[1m])) by (le))",
               "legendFormat": "p95"
             },
             {
-              "expr": "histogram_quantile(0.99, sum(rate(medusa_http_request_duration_seconds_bucket{tenant=\"pisofire\"}[1m])) by (le))",
+              "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[1m])) by (le))",
               "legendFormat": "p99"
             }
           ]
@@ -66,11 +66,11 @@ data:
           "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "nodejs_heap_size_used_bytes{tenant=\"pisofire\"}",
+              "expr": "pisofire_medusa_nodejs_heap_size_used_bytes",
               "legendFormat": "heap used"
             },
             {
-              "expr": "nodejs_heap_size_total_bytes{tenant=\"pisofire\"}",
+              "expr": "pisofire_medusa_nodejs_heap_size_total_bytes",
               "legendFormat": "heap total"
             }
           ]
