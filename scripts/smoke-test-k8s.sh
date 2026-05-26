@@ -172,6 +172,8 @@ MEDUSA_READY_STATUS="$(curl -sS -o /tmp/pisofire-medusa-ready.out -w '%{http_cod
 STORE_READY_STATUS="$(curl -sS -o /tmp/pisofire-store-ready.out -w '%{http_code}' "$MEDUSA_BASE_URL/store-readyz")"
 STOREFRONT_HEALTH_STATUS="$(curl -sS -o /tmp/pisofire-storefront-health.out -w '%{http_code}' "$STOREFRONT_BASE_URL/api/health")"
 STOREFRONT_READY_STATUS="$(curl -sS -o /tmp/pisofire-storefront-ready.out -w '%{http_code}' "$STOREFRONT_BASE_URL/api/ready")"
+MEDUSA_METRICS_STATUS="$(curl -sS -o /tmp/pisofire-medusa-metrics.out -w '%{http_code}' "$MEDUSA_BASE_URL/metrics")"
+STOREFRONT_METRICS_STATUS="$(curl -sS -o /tmp/pisofire-storefront-metrics.out -w '%{http_code}' "$STOREFRONT_BASE_URL/api/metrics")"
 
 if [ "$MEDUSA_STATUS" != "200" ]; then
   echo "Unexpected Medusa health status: $MEDUSA_STATUS" >&2
@@ -198,6 +200,28 @@ fi
 if [ "$STOREFRONT_READY_STATUS" != "200" ]; then
   echo "Unexpected storefront readiness status: $STOREFRONT_READY_STATUS" >&2
   cat /tmp/pisofire-storefront-ready.out >&2 || true
+  exit 1
+fi
+
+if [ "$MEDUSA_METRICS_STATUS" != "200" ]; then
+  echo "Unexpected Medusa metrics status: $MEDUSA_METRICS_STATUS" >&2
+  cat /tmp/pisofire-medusa-metrics.out >&2 || true
+  exit 1
+fi
+
+if ! grep -q '^pisofire_medusa_info' /tmp/pisofire-medusa-metrics.out; then
+  echo "Medusa metrics response did not include pisofire_medusa_info." >&2
+  exit 1
+fi
+
+if [ "$STOREFRONT_METRICS_STATUS" != "200" ]; then
+  echo "Unexpected storefront metrics status: $STOREFRONT_METRICS_STATUS" >&2
+  cat /tmp/pisofire-storefront-metrics.out >&2 || true
+  exit 1
+fi
+
+if ! grep -q '^pisofire_storefront_info' /tmp/pisofire-storefront-metrics.out; then
+  echo "Storefront metrics response did not include pisofire_storefront_info." >&2
   exit 1
 fi
 
@@ -279,7 +303,9 @@ kubectl run -n "$NAMESPACE" "$SERVICE_SMOKE_NAME" \
   -- sh -ec "
     wget -qO- http://medusa:9000/readyz >/dev/null
     wget -qO- http://medusa:9000/store-readyz >/dev/null
+    wget -qO- http://medusa:9000/metrics | grep -q '^pisofire_medusa_info'
     wget -qO- http://storefront:8000/api/ready >/dev/null
+    wget -qO- http://storefront:8000/api/metrics | grep -q '^pisofire_storefront_info'
     wget -qO- --header 'Cookie: _medusa_cache_id=service-smoke' http://storefront:8000/$COUNTRY_CODE >/dev/null
   "
 
@@ -337,8 +363,10 @@ printf '%s\n' "Smoke test passed" \
   "Backend health: $MEDUSA_STATUS" \
   "Backend readiness: $MEDUSA_READY_STATUS" \
   "Store readiness: $STORE_READY_STATUS" \
+  "Backend metrics: $MEDUSA_METRICS_STATUS" \
   "Storefront health: $STOREFRONT_HEALTH_STATUS" \
   "Storefront readiness: $STOREFRONT_READY_STATUS" \
+  "Storefront metrics: $STOREFRONT_METRICS_STATUS" \
   "Admin authentication: passed" \
   "Storefront page: $STOREFRONT_PAGE_STATUS" \
   "Service DNS checks: passed" \
