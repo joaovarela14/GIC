@@ -10,6 +10,10 @@ spec:
       app: storefront
   template:
     metadata:
+      annotations:
+        prometheus.io/path: /api/metrics
+        prometheus.io/port: "8000"
+        prometheus.io/scrape: "true"
       labels:
         app: storefront
     spec:
@@ -81,6 +85,12 @@ kind: Service
 metadata:
   name: storefront
   namespace: pisofire
+  labels:
+    app: storefront
+  annotations:
+    prometheus.io/path: /api/metrics
+    prometheus.io/port: "8000"
+    prometheus.io/scrape: "true"
 spec:
   selector:
     app: storefront

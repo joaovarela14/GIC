@@ -1,24 +1,40 @@
-import { MedusaNextFunction, MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { httpRequestsTotal, httpRequestDuration } from "./metrics/route"
+import {
+  defineMiddlewares,
+  MedusaNextFunction,
+  MedusaRequest,
+  MedusaResponse,
+} from "@medusajs/framework/http"
+import { getMedusaMetrics, normalizeMedusaRoute } from "../lib/metrics"
 
-export function defineMiddlewares() {
-  return {
-    routes: [
-      {
-        matcher: "*",
-        middlewares: [
-          (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
-            const end = httpRequestDuration.startTimer()
-            res.on("finish", () => {
-              const route = req.route?.path ?? req.path
-              const labels = { method: req.method, route, status: String(res.statusCode) }
-              httpRequestsTotal.inc(labels)
-              end(labels)
-            })
-            next()
-          },
-        ],
-      },
-    ],
-  }
+function prometheusHttpMiddleware(
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: MedusaNextFunction
+) {
+  const metrics = getMedusaMetrics()
+  const startedAt = process.hrtime.bigint()
+
+  res.on("finish", () => {
+    const durationSeconds =
+      Number(process.hrtime.bigint() - startedAt) / 1_000_000_000
+    const labels = {
+      method: req.method,
+      route: normalizeMedusaRoute(req.path),
+      status_code: String(res.statusCode),
+    }
+
+    metrics.httpRequestsTotal.inc(labels)
+    metrics.httpRequestDuration.observe(labels, durationSeconds)
+  })
+
+  next()
 }
+
+export default defineMiddlewares({
+  routes: [
+    {
+      matcher: "/",
+      middlewares: [prometheusHttpMiddleware],
+    },
+  ],
+})

@@ -10,6 +10,10 @@ spec:
       app: medusa
   template:
     metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9000"
+        prometheus.io/scrape: "true"
       labels:
         app: medusa
     spec:
@@ -106,6 +110,10 @@ metadata:
   namespace: pisofire
   labels:
     app: medusa
+  annotations:
+    prometheus.io/path: /metrics
+    prometheus.io/port: "9000"
+    prometheus.io/scrape: "true"
 spec:
   selector:
     app: medusa
