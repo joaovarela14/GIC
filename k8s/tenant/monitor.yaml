@@ -1,0 +1,63 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pisofire-medusa
+  namespace: tenant-pisofire
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: medusa
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pisofire-storefront
+  namespace: tenant-pisofire
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: storefront
+  endpoints:
+    - port: http
+      path: /api/metrics
+      interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pisofire-postgres-exporter
+  namespace: tenant-pisofire
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: postgres-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pisofire-redis-exporter
+  namespace: tenant-pisofire
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: redis-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s

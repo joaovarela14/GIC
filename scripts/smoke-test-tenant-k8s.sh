@@ -44,6 +44,8 @@ kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=com
 echo "Checking backend and storefront health through Ingress"
 MEDUSA_STATUS="$(curl -fsS -o /tmp/pisofire-tenant-medusa-health.out -w '%{http_code}' "$MEDUSA_BASE_URL/health")"
 STOREFRONT_STATUS="$(curl -fsS -o /tmp/pisofire-tenant-storefront-head.out -D - "$STOREFRONT_BASE_URL" | awk 'NR==1 {print $2}')"
+MEDUSA_METRICS_STATUS="$(curl -sS -o /tmp/pisofire-tenant-medusa-metrics.out -w '%{http_code}' "$MEDUSA_BASE_URL/metrics")"
+STOREFRONT_METRICS_STATUS="$(curl -sS -o /tmp/pisofire-tenant-storefront-metrics.out -w '%{http_code}' "$STOREFRONT_BASE_URL/api/metrics")"
 
 if [ "$MEDUSA_STATUS" != "200" ]; then
   echo "Unexpected Medusa health status: $MEDUSA_STATUS" >&2
@@ -57,6 +59,28 @@ case "$STOREFRONT_STATUS" in
     exit 1
     ;;
 esac
+
+if [ "$MEDUSA_METRICS_STATUS" != "200" ]; then
+  echo "Unexpected Medusa metrics status: $MEDUSA_METRICS_STATUS" >&2
+  cat /tmp/pisofire-tenant-medusa-metrics.out >&2 || true
+  exit 1
+fi
+
+if ! grep -q '^pisofire_medusa_info' /tmp/pisofire-tenant-medusa-metrics.out; then
+  echo "Medusa metrics response did not include pisofire_medusa_info." >&2
+  exit 1
+fi
+
+if [ "$STOREFRONT_METRICS_STATUS" != "200" ]; then
+  echo "Unexpected storefront metrics status: $STOREFRONT_METRICS_STATUS" >&2
+  cat /tmp/pisofire-tenant-storefront-metrics.out >&2 || true
+  exit 1
+fi
+
+if ! grep -q '^pisofire_storefront_info' /tmp/pisofire-tenant-storefront-metrics.out; then
+  echo "Storefront metrics response did not include pisofire_storefront_info." >&2
+  exit 1
+fi
 
 echo "Checking Medusa admin authentication through Ingress"
 ADMIN_EMAIL="${MEDUSA_ADMIN_EMAIL:-}"
@@ -184,6 +208,8 @@ printf '%s\n' "Tenant smoke test passed" \
   "Context: $CURRENT_CONTEXT" \
   "Namespace: $NAMESPACE" \
   "Backend health: $MEDUSA_STATUS" \
+  "Backend metrics: $MEDUSA_METRICS_STATUS" \
   "Storefront status: $STOREFRONT_STATUS" \
+  "Storefront metrics: $STOREFRONT_METRICS_STATUS" \
   "Admin authentication: passed" \
   "Order: $ORDER_ID"

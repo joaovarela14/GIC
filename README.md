@@ -49,6 +49,43 @@ kubectl port-forward -n pisofire svc/medusa 9000:9000
 
 If login succeeds but returns to the login page, clear browser site data for `localhost:9000` or use a private window. The local Kubernetes config sets non-secure SameSite cookies so Admin sessions work over `http://localhost:9000`.
 
+## Metrics
+
+The Kubernetes manifests expose Prometheus-compatible metrics for the backend
+and storefront through scrape annotations on both Pods and Services.
+
+When the local port-forwards are active:
+
+```bash
+curl http://localhost:9000/metrics
+curl http://localhost:8000/api/metrics
+```
+
+Prometheus should scrape:
+
+- Medusa backend: `http://medusa:9000/metrics`
+- Storefront: `http://storefront:8000/api/metrics`
+
+The Services are labeled with `app=medusa` and `app=storefront`, so a
+Prometheus Operator `ServiceMonitor` can select them directly if the monitoring
+stack does not scrape `prometheus.io/*` annotations.
+
+Useful custom metrics:
+
+- `pisofire_medusa_info`: static backend process labels.
+- `pisofire_medusa_http_requests_total`: backend requests by method, route and status.
+- `pisofire_medusa_http_request_duration_seconds`: backend request latency.
+- `pisofire_medusa_dependency_up`: backend view of `database` and `redis` availability.
+- `pisofire_medusa_store_entity_count`: counts for key store entities such as products, regions, orders and admin users.
+- `pisofire_storefront_info`: static storefront process labels.
+- `pisofire_storefront_backend_up`: storefront view of Medusa readiness.
+- `pisofire_storefront_backend_ready_latency_seconds`: latency from storefront to Medusa `/readyz`.
+
+Both apps also export Node.js process metrics with these prefixes:
+
+- `pisofire_medusa_...`
+- `pisofire_storefront_...`
+
 ## Kubernetes Smoke Test
 
 For M1 functional verification:
@@ -66,9 +103,10 @@ The smoke test validates the deployment through Kubernetes Services, not only th
 - starts temporary local port-forwards to Medusa and the storefront
 - checks Medusa `/health`, `/readyz` and `/store-readyz`
 - checks storefront `/api/health` and `/api/ready`
+- checks Medusa `/metrics` and storefront `/api/metrics`
 - tests Medusa Admin authentication with the bootstrapped admin user and verifies `/admin/users/me`
 - runs a store checkout path: publishable key, region, product, variant, cart, shipping, payment collection and order creation
-- runs in-cluster Service DNS checks from a temporary BusyBox pod against `medusa` and `storefront`
+- runs in-cluster Service DNS checks from a temporary BusyBox pod against `medusa` and `storefront`, including the metrics endpoints
 
 When it succeeds, expect output like:
 
@@ -79,8 +117,10 @@ Namespace: pisofire
 Backend health: 200
 Backend readiness: 200
 Store readiness: 200
+Backend metrics: 200
 Storefront health: 200
 Storefront readiness: 200
+Storefront metrics: 200
 Admin authentication: passed
 Storefront page: 307
 Service DNS checks: passed

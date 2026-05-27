@@ -1,0 +1,95 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pisofire-alerts
+  namespace: tenant-pisofire
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: pisofire.medusa
+      rules:
+        - alert: PisofireHighErrorRate
+          expr: |
+            (
+              sum(rate(pisofire_medusa_http_requests_total{status_code=~"5.."}[5m]))
+              /
+              sum(rate(pisofire_medusa_http_requests_total[5m]))
+            ) > 0.05
+          for: 2m
+          labels:
+            severity: warning
+            tenant: pisofire
+          annotations:
+            summary: "PisoFire HTTP error rate above 5%"
+            description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+        - alert: PisofireHighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[5m])) by (le)
+            ) > 1.0
+          for: 2m
+          labels:
+            severity: warning
+            tenant: pisofire
+          annotations:
+            summary: "PisoFire p95 latency above 1s"
+            description: "p95 latency is {{ $value }}s."
+
+        - alert: PisofireMedusaDown
+          expr: up{job="pisofire-medusa"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            tenant: pisofire
+          annotations:
+            summary: "PisoFire Medusa is down"
+            description: "Prometheus cannot scrape the Medusa /metrics endpoint."
+
+    - name: pisofire.postgres
+      rules:
+        - alert: PisofirePostgresDown
+          expr: up{job="pisofire-postgres-exporter"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            tenant: pisofire
+          annotations:
+            summary: "PisoFire PostgreSQL exporter is down"
+            description: "Cannot reach postgres-exporter; database may be unavailable."
+
+        - alert: PisofirePostgresHighConnections
+          expr: sum(pg_stat_database_numbackends{namespace="tenant-pisofire"}) > 80
+          for: 5m
+          labels:
+            severity: warning
+            tenant: pisofire
+          annotations:
+            summary: "PisoFire PostgreSQL connection count high"
+            description: "{{ $value }} active connections."
+
+    - name: pisofire.redis
+      rules:
+        - alert: PisofireRedisDown
+          expr: up{job="pisofire-redis-exporter"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            tenant: pisofire
+          annotations:
+            summary: "PisoFire Redis exporter is down"
+            description: "Cannot reach redis-exporter; cache/queue may be unavailable."
+
+        - alert: PisofireRedisHighMemory
+          expr: |
+            redis_memory_used_bytes{namespace="tenant-pisofire"}
+            /
+            redis_memory_max_bytes{namespace="tenant-pisofire"} > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            tenant: pisofire
+          annotations:
+            summary: "PisoFire Redis memory above 85%"
+            description: "Redis memory usage is {{ $value | humanizePercentage }}."

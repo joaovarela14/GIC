@@ -120,6 +120,38 @@ curl http://localhost:8000/api/ready
 curl -I http://localhost:8000/pt
 ```
 
+Metrics for Prometheus/Grafana:
+
+```bash
+curl http://localhost:9000/metrics
+curl http://localhost:8000/api/metrics
+```
+
+The manifests include standard Prometheus scrape annotations on the Medusa and
+storefront Pods and Services:
+
+```text
+prometheus.io/scrape: "true"
+prometheus.io/port: "9000"
+prometheus.io/path: /metrics
+
+prometheus.io/scrape: "true"
+prometheus.io/port: "8000"
+prometheus.io/path: /api/metrics
+```
+
+The Services are also labeled with `app=medusa` and `app=storefront` for
+Prometheus Operator `ServiceMonitor` selectors.
+
+Key custom metrics:
+
+- `pisofire_medusa_http_requests_total`
+- `pisofire_medusa_http_request_duration_seconds`
+- `pisofire_medusa_dependency_up`
+- `pisofire_medusa_store_entity_count`
+- `pisofire_storefront_backend_up`
+- `pisofire_storefront_backend_ready_latency_seconds`
+
 Service-level checks from inside the cluster:
 
 ```bash
@@ -129,7 +161,9 @@ kubectl run -n pisofire service-smoke \
   -- sh -ec '
     wget -qO- http://medusa:9000/readyz
     wget -qO- http://medusa:9000/store-readyz
+    wget -qO- http://medusa:9000/metrics | grep -q "^pisofire_medusa_info"
     wget -qO- http://storefront:8000/api/ready
+    wget -qO- http://storefront:8000/api/metrics | grep -q "^pisofire_storefront_info"
     wget -qO- http://storefront:8000/pt >/dev/null
   '
 ```
@@ -147,9 +181,10 @@ The smoke test:
 - waits for all core deployments and for both bootstrap jobs.
 - checks backend health/readiness through `/health`, `/readyz` and `/store-readyz`.
 - checks storefront health/readiness through `/api/health` and `/api/ready`.
+- checks backend and storefront metrics through `/metrics` and `/api/metrics`.
 - verifies Medusa Admin login by creating a session cookie and calling `/admin/users/me`.
 - runs a checkout path from product discovery to order creation.
-- validates in-cluster Service DNS by calling `medusa` and `storefront` from a temporary BusyBox pod.
+- validates in-cluster Service DNS by calling `medusa` and `storefront` from a temporary BusyBox pod, including their metrics endpoints.
 
 Successful output ends with:
 
@@ -158,8 +193,10 @@ Smoke test passed
 Backend health: 200
 Backend readiness: 200
 Store readiness: 200
+Backend metrics: 200
 Storefront health: 200
 Storefront readiness: 200
+Storefront metrics: 200
 Admin authentication: passed
 Service DNS checks: passed
 Order: order_...

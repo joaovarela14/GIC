@@ -12,6 +12,10 @@ resources:
   - bootstrap-job.yaml
   - storefront.yaml
   - ingress.yaml
+  - exporters.yaml
+  - monitor.yaml
+  - grafana-dashboard.yaml
+  - alerts.yaml
 generatorOptions:
   disableNameSuffixHash: true
 secretGenerator:
