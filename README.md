@@ -107,6 +107,27 @@ Postgres, Redis and tenant exporters. Medusa and storefront use rolling updates 
 `maxUnavailable: 0`, topology spread preferences across nodes and
 PodDisruptionBudgets so voluntary disruptions keep at least one serving pod.
 
+To demonstrate that the HPA reacts to load:
+
+```bash
+./scripts/hpa-scale-test-k8s.sh
+```
+
+The script starts temporary in-cluster HTTP load against the selected Kubernetes
+Service. By default it temporarily lowers the selected HPA targets to 1% so the
+demo is deterministic in a small local cluster, waits until an extra replica is
+requested or ready, then restores the original HPA thresholds and replica count.
+
+Successful output ends with:
+
+```text
+HPA scale test passed
+Namespace: pisofire
+Target deployment: storefront
+HPA: storefront
+Scale-up observed: yes
+```
+
 To demonstrate routing around pod failures locally:
 
 ```bash

@@ -87,6 +87,18 @@ The backend and storefront start with two replicas and can scale to five when CP
 memory utilization crosses the configured HPA targets. The worker starts with one
 replica and can scale to three.
 
+Run the HPA scale-up demonstration against the tenant cluster:
+
+```bash
+KUBECONFIG_FILE=tenant-pisofire-kubeconfig.yaml \
+EXPECTED_CONTEXT=tenant-pisofire-context \
+NAMESPACE=tenant-pisofire \
+./scripts/hpa-scale-test-k8s.sh
+```
+
+The script creates temporary in-cluster HTTP load, observes the HPA scale-up, and
+restores the original HPA thresholds and replica count before exiting.
+
 Run an immediate tenant backup:
 
 ```bash

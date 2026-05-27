@@ -179,6 +179,25 @@ kubectl get pdb -n pisofire
 kubectl top pods -n pisofire
 ```
 
+Run the HPA scale-up demonstration:
+
+```bash
+./scripts/hpa-scale-test-k8s.sh
+```
+
+By default, the script targets the `storefront` HPA. It temporarily lowers the HPA
+CPU and memory targets to 1%, starts in-cluster HTTP load through the Kubernetes
+Services, waits for the HPA to request or reach one additional replica, and restores
+the original HPA targets and replica count during cleanup.
+
+Useful overrides:
+
+```bash
+TARGET_DEPLOYMENT=medusa HPA_NAME=medusa ./scripts/hpa-scale-test-k8s.sh
+LOAD_WORKERS=8 LOAD_DURATION_SECONDS=240 ./scripts/hpa-scale-test-k8s.sh
+CONTROLLED_HPA_DEMO=false ./scripts/hpa-scale-test-k8s.sh
+```
+
 Run the failure-injection check:
 
 ```bash
