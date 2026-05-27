@@ -86,9 +86,42 @@ Both apps also export Node.js process metrics with these prefixes:
 - `pisofire_medusa_...`
 - `pisofire_storefront_...`
 
+## Resilience and Autoscaling
+
+For M2, the stateless request path is no longer single-replica:
+
+- `medusa`: starts with 2 replicas and can scale to 5.
+- `storefront`: starts with 2 replicas and can scale to 5.
+- `medusa-worker`: starts with 1 replica and can scale to 3.
+
+The HPAs use Kubernetes CPU and memory metrics:
+
+- Medusa scales above 70% CPU or 80% memory utilization.
+- Storefront scales above 70% CPU or 80% memory utilization.
+- Worker scales above 75% CPU or 80% memory utilization.
+
+The manifests also define CPU/memory requests and limits for application pods,
+Postgres, Redis and tenant exporters. Medusa and storefront use rolling updates with
+`maxUnavailable: 0`, topology spread preferences across nodes and
+PodDisruptionBudgets so voluntary disruptions keep at least one serving pod.
+
+To demonstrate routing around pod failures locally:
+
+```bash
+./scripts/resilience-test-k8s.sh
+```
+
+The script deletes one Medusa pod and one storefront pod, checks the Services from
+inside the cluster during recovery, and waits for both Deployments to return to the
+desired replica count.
+
+Known M2 limit: Postgres and Redis are still single-instance stateful services. They
+have health checks and resource limits, but real HA still requires managed Postgres or
+a replicated database/Redis topology plus backup and restore automation.
+
 ## Kubernetes Smoke Test
 
-For M1 functional verification:
+For functional and M2 baseline verification:
 
 ```bash
 ./scripts/smoke-test-k8s.sh
@@ -100,6 +133,7 @@ The smoke test validates the deployment through Kubernetes Services, not only th
 - fails early if the Kubernetes API is unreachable or nodes are under disk pressure
 - waits for `postgres`, `redis`, `medusa`, `medusa-worker` and `storefront` rollouts
 - waits for `bootstrap-admin` and `bootstrap-store` to complete
+- checks HPA, PodDisruptionBudget and Kubernetes metrics API availability
 - starts temporary local port-forwards to Medusa and the storefront
 - checks Medusa `/health`, `/readyz` and `/store-readyz`
 - checks storefront `/api/health` and `/api/ready`
@@ -121,6 +155,7 @@ Backend metrics: 200
 Storefront health: 200
 Storefront readiness: 200
 Storefront metrics: 200
+Autoscaling controls: present
 Admin authentication: passed
 Storefront page: 307
 Service DNS checks: passed

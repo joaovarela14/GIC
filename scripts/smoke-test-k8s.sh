@@ -155,6 +155,22 @@ if ! kubectl wait -n "$NAMESPACE" --for=condition=complete --timeout=180s job/bo
   exit 1
 fi
 
+echo "Checking autoscaling and disruption controls"
+if ! kubectl get hpa -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null; then
+  echo "Expected HPA resources were not found." >&2
+  exit 1
+fi
+
+if ! kubectl get pdb -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null; then
+  echo "Expected PodDisruptionBudget resources were not found." >&2
+  exit 1
+fi
+
+if ! kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes >/dev/null 2>&1; then
+  echo "Kubernetes metrics API is unavailable; HPA cannot scale on CPU/memory." >&2
+  exit 1
+fi
+
 echo "Starting local port-forwards"
 kubectl port-forward -n "$NAMESPACE" svc/medusa "$MEDUSA_PORT:9000" >/tmp/pisofire-medusa-port-forward.log 2>&1 &
 MEDUSA_PF_PID=$!
@@ -367,6 +383,7 @@ printf '%s\n' "Smoke test passed" \
   "Storefront health: $STOREFRONT_HEALTH_STATUS" \
   "Storefront readiness: $STOREFRONT_READY_STATUS" \
   "Storefront metrics: $STOREFRONT_METRICS_STATUS" \
+  "Autoscaling controls: present" \
   "Admin authentication: passed" \
   "Storefront page: $STOREFRONT_PAGE_STATUS" \
   "Service DNS checks: passed" \

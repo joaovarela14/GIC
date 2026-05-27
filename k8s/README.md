@@ -152,6 +152,41 @@ Key custom metrics:
 - `pisofire_storefront_backend_up`
 - `pisofire_storefront_backend_ready_latency_seconds`
 
+## Resilience and Autoscaling
+
+The local and tenant manifests define M2 autoscaling controls:
+
+- `medusa`: 2 minimum replicas, 5 maximum replicas, 70% CPU / 80% memory targets.
+- `storefront`: 2 minimum replicas, 5 maximum replicas, 70% CPU / 80% memory targets.
+- `medusa-worker`: 1 minimum replica, 3 maximum replicas, 75% CPU / 80% memory targets.
+
+All HPA targets have CPU and memory requests, because the HPA resource utilization
+calculation depends on requests. Medusa and storefront also have:
+
+- rolling updates with `maxUnavailable: 0`
+- topology spread preferences by node hostname
+- PodDisruptionBudgets keeping at least one pod available during voluntary disruptions
+
+Check the controls:
+
+```bash
+kubectl get hpa -n pisofire
+kubectl get pdb -n pisofire
+kubectl top pods -n pisofire
+```
+
+Run the failure-injection check:
+
+```bash
+./scripts/resilience-test-k8s.sh
+```
+
+It deletes one Medusa pod and one storefront pod, verifies both Services from inside
+the cluster, and waits for the Deployments to recover.
+
+Postgres and Redis remain single-instance stateful dependencies. They are bounded by
+requests/limits and probes, but full database/cache HA is still a known limit.
+
 Service-level checks from inside the cluster:
 
 ```bash
@@ -179,6 +214,7 @@ The smoke test:
 - verifies the current `kubectl` cluster is the expected local `k3d` cluster.
 - checks Kubernetes API connectivity and node disk pressure before testing the app.
 - waits for all core deployments and for both bootstrap jobs.
+- checks HPA, PodDisruptionBudget and metrics API availability.
 - checks backend health/readiness through `/health`, `/readyz` and `/store-readyz`.
 - checks storefront health/readiness through `/api/health` and `/api/ready`.
 - checks backend and storefront metrics through `/metrics` and `/api/metrics`.
@@ -197,6 +233,7 @@ Backend metrics: 200
 Storefront health: 200
 Storefront readiness: 200
 Storefront metrics: 200
+Autoscaling controls: present
 Admin authentication: passed
 Service DNS checks: passed
 Order: order_...

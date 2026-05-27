@@ -41,6 +41,15 @@ echo "Waiting for bootstrap job completion"
 kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=complete --timeout=240s job/bootstrap-store >/dev/null
 kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=complete --timeout=240s job/bootstrap-admin >/dev/null
 
+echo "Checking autoscaling and disruption controls"
+kubectl --kubeconfig "$KUBECONFIG_FILE" get hpa -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null
+kubectl --kubeconfig "$KUBECONFIG_FILE" get pdb -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null
+
+if ! kubectl --kubeconfig "$KUBECONFIG_FILE" get --raw /apis/metrics.k8s.io/v1beta1/nodes >/dev/null 2>&1; then
+  echo "Kubernetes metrics API is unavailable; HPA cannot scale on CPU/memory." >&2
+  exit 1
+fi
+
 echo "Checking backend and storefront health through Ingress"
 MEDUSA_STATUS="$(curl -fsS -o /tmp/pisofire-tenant-medusa-health.out -w '%{http_code}' "$MEDUSA_BASE_URL/health")"
 STOREFRONT_STATUS="$(curl -fsS -o /tmp/pisofire-tenant-storefront-head.out -D - "$STOREFRONT_BASE_URL" | awk 'NR==1 {print $2}')"
@@ -211,5 +220,6 @@ printf '%s\n' "Tenant smoke test passed" \
   "Backend metrics: $MEDUSA_METRICS_STATUS" \
   "Storefront status: $STOREFRONT_STATUS" \
   "Storefront metrics: $STOREFRONT_METRICS_STATUS" \
+  "Autoscaling controls: present" \
   "Admin authentication: passed" \
   "Order: $ORDER_ID"

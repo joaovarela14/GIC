@@ -20,6 +20,13 @@ spec:
           ports:
             - containerPort: 6379
               name: redis
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           readinessProbe:
             exec:
               command:

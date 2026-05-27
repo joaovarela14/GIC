@@ -72,6 +72,18 @@ After deployment, run:
 ./scripts/smoke-test-tenant-k8s.sh
 ```
 
+The tenant overlay includes the M2 monitoring and autoscaling resources:
+
+- ServiceMonitors for Medusa, storefront, Postgres exporter and Redis exporter.
+- PrometheusRule alerts for error rate, latency and dependency availability.
+- Grafana dashboard ConfigMaps.
+- HPAs for `medusa`, `storefront` and `medusa-worker`.
+- PodDisruptionBudgets for the stateless request path and worker.
+
+The backend and storefront start with two replicas and can scale to five when CPU or
+memory utilization crosses the configured HPA targets. The worker starts with one
+replica and can scale to three.
+
 By default, images are built and pushed as:
 
 - `registry.deti/tenant-pisofire/medusa:<tag>`

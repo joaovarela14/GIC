@@ -4,7 +4,12 @@ metadata:
   name: medusa
   namespace: pisofire
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: medusa
@@ -17,6 +22,13 @@ spec:
       labels:
         app: medusa
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: medusa
       containers:
         - name: medusa
           image: my-medusa-store-medusa:latest
@@ -86,9 +98,24 @@ spec:
                 secretKeyRef:
                   name: pisofire-secrets
                   key: COOKIE_SECRET
-          readinessProbe:
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
             httpGet:
               path: /health
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
               port: 9000
             initialDelaySeconds: 20
             periodSeconds: 10
