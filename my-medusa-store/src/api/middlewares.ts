@@ -33,7 +33,7 @@ function prometheusHttpMiddleware(
 export default defineMiddlewares({
   routes: [
     {
-      matcher: "/",
+      matcher: "*",
       middlewares: [prometheusHttpMiddleware],
     },
   ],

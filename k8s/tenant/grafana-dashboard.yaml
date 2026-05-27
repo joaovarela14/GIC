@@ -182,18 +182,13 @@ data:
       "panels": [
         {
           "id": 1,
-          "title": "Medusa Availability (success rate %)",
-          "description": "Percentage of non-5xx responses. SLO target: 99.5%",
-          "type": "timeseries",
-          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
-          "targets": [
-            {
-              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{status_code!~\"5..\"}[5m])) / sum(rate(pisofire_medusa_http_requests_total[5m]))",
-              "legendFormat": "availability %"
-            }
-          ],
+          "title": "Availability (5m)",
+          "type": "stat",
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "unit": "percent" },
           "fieldConfig": {
             "defaults": {
+              "unit": "percent",
               "thresholds": {
                 "steps": [
                   { "color": "red", "value": 0 },
@@ -202,18 +197,54 @@ data:
                 ]
               }
             }
-          }
+          },
+          "targets": [
+            {
+              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{status_code!~\"5..\"}[5m])) / sum(rate(pisofire_medusa_http_requests_total[5m]))",
+              "legendFormat": "availability"
+            }
+          ]
+        },
+        {
+          "id": 13,
+          "title": "p99 Latency",
+          "type": "stat",
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": 0 },
+                  { "color": "yellow", "value": 500 },
+                  { "color": "red", "value": 1000 }
+                ]
+              }
+            }
+          },
+          "targets": [
+            {
+              "expr": "1000 * histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p99"
+            }
+          ]
         },
         {
           "id": 2,
-          "title": "Storefront Backend Up",
-          "description": "1 = Medusa reachable from storefront, 0 = down",
-          "type": "timeseries",
-          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "title": "Storefront → Backend",
+          "type": "stat",
+          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "mappings": [
+              { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+            ]
+          },
           "targets": [
             {
               "expr": "pisofire_storefront_backend_up",
-              "legendFormat": "backend up"
+              "legendFormat": "backend"
             }
           ]
         },
@@ -366,9 +397,13 @@ data:
           "title": "HTTP Response Time Distribution (heatmap)",
           "type": "heatmap",
           "gridPos": { "x": 12, "y": 48, "w": 12, "h": 8 },
+          "options": {
+            "calculate": false,
+            "yAxis": { "unit": "s" }
+          },
           "targets": [
             {
-              "expr": "sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le)",
+              "expr": "sum(increase(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le)",
               "legendFormat": "{{le}}",
               "format": "heatmap"
             }
