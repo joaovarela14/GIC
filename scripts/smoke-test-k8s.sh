@@ -166,6 +166,16 @@ if ! kubectl get pdb -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null;
   exit 1
 fi
 
+if ! kubectl get cronjob -n "$NAMESPACE" postgres-backup >/dev/null; then
+  echo "Expected PostgreSQL backup CronJob was not found." >&2
+  exit 1
+fi
+
+if ! kubectl get pvc -n "$NAMESPACE" postgres-backups >/dev/null; then
+  echo "Expected PostgreSQL backup PVC was not found." >&2
+  exit 1
+fi
+
 if ! kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes >/dev/null 2>&1; then
   echo "Kubernetes metrics API is unavailable; HPA cannot scale on CPU/memory." >&2
   exit 1
@@ -384,6 +394,7 @@ printf '%s\n' "Smoke test passed" \
   "Storefront readiness: $STOREFRONT_READY_STATUS" \
   "Storefront metrics: $STOREFRONT_METRICS_STATUS" \
   "Autoscaling controls: present" \
+  "PostgreSQL backup controls: present" \
   "Admin authentication: passed" \
   "Storefront page: $STOREFRONT_PAGE_STATUS" \
   "Service DNS checks: passed" \

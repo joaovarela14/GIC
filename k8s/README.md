@@ -185,7 +185,38 @@ It deletes one Medusa pod and one storefront pod, verifies both Services from in
 the cluster, and waits for the Deployments to recover.
 
 Postgres and Redis remain single-instance stateful dependencies. They are bounded by
-requests/limits and probes, but full database/cache HA is still a known limit.
+requests/limits and probes. Postgres also has dump-based backup and restore
+automation, but full database/cache HA is still a known limit.
+
+## PostgreSQL Backup and Restore
+
+Backups are stored in a dedicated PVC named `postgres-backups`. The
+`postgres-backup` CronJob runs nightly and writes custom-format `pg_dump` files, plus
+a `latest.dump` symlink for the newest backup.
+
+Check backup resources:
+
+```bash
+kubectl get cronjob postgres-backup -n pisofire
+kubectl get pvc postgres-backups -n pisofire
+```
+
+Run a backup immediately:
+
+```bash
+./scripts/backup-postgres-k8s.sh
+```
+
+Restore from the newest backup:
+
+```bash
+CONFIRM_RESTORE=I_UNDERSTAND_THIS_OVERWRITES_POSTGRES \
+  ./scripts/restore-postgres-k8s.sh latest.dump
+```
+
+The restore script creates a one-shot Kubernetes Job, runs `dropdb --force`,
+recreates the database, restores with `pg_restore`, and restarts the application
+Deployments afterwards.
 
 Service-level checks from inside the cluster:
 
@@ -215,6 +246,7 @@ The smoke test:
 - checks Kubernetes API connectivity and node disk pressure before testing the app.
 - waits for all core deployments and for both bootstrap jobs.
 - checks HPA, PodDisruptionBudget and metrics API availability.
+- checks PostgreSQL backup CronJob and backup PVC availability.
 - checks backend health/readiness through `/health`, `/readyz` and `/store-readyz`.
 - checks storefront health/readiness through `/api/health` and `/api/ready`.
 - checks backend and storefront metrics through `/metrics` and `/api/metrics`.
@@ -234,6 +266,7 @@ Storefront health: 200
 Storefront readiness: 200
 Storefront metrics: 200
 Autoscaling controls: present
+PostgreSQL backup controls: present
 Admin authentication: passed
 Service DNS checks: passed
 Order: order_...

@@ -1,0 +1,86 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: pisofire
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: postgres-backup
+              image: postgres:15-alpine
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: POSTGRES_DB
+                  valueFrom:
+                    configMapKeyRef:
+                      name: pisofire-config
+                      key: POSTGRES_DB
+                - name: POSTGRES_USER
+                  valueFrom:
+                    configMapKeyRef:
+                      name: pisofire-config
+                      key: POSTGRES_USER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: pisofire-secrets
+                      key: POSTGRES_PASSWORD
+                - name: POSTGRES_BACKUP_RETENTION_DAYS
+                  value: "7"
+              command:
+                - sh
+                - -ec
+                - |
+                  backup_dir=/backups
+                  timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+                  backup_file="$backup_dir/$POSTGRES_DB-$timestamp.dump"
+                  tmp_file="$backup_file.tmp"
+
+                  mkdir -p "$backup_dir"
+                  echo "Waiting for PostgreSQL to accept connections..."
+                  until pg_isready -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
+                    sleep 5
+                  done
+
+                  echo "Writing backup to $backup_file"
+                  pg_dump \
+                    -h postgres \
+                    -U "$POSTGRES_USER" \
+                    -d "$POSTGRES_DB" \
+                    -Fc \
+                    --no-owner \
+                    --no-acl \
+                    -f "$tmp_file"
+
+                  mv "$tmp_file" "$backup_file"
+                  ln -sfn "$(basename "$backup_file")" "$backup_dir/latest.dump"
+                  find "$backup_dir" -type f -name "$POSTGRES_DB-*.dump" -mtime "+$POSTGRES_BACKUP_RETENTION_DAYS" -delete
+
+                  echo "Backup completed: $backup_file"
+                  ls -lh "$backup_dir"
+              volumeMounts:
+                - name: postgres-backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: postgres-backups
+              persistentVolumeClaim:
+                claimName: postgres-backups

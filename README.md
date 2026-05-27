@@ -115,9 +115,39 @@ The script deletes one Medusa pod and one storefront pod, checks the Services fr
 inside the cluster during recovery, and waits for both Deployments to return to the
 desired replica count.
 
-Known M2 limit: Postgres and Redis are still single-instance stateful services. They
-have health checks and resource limits, but real HA still requires managed Postgres or
-a replicated database/Redis topology plus backup and restore automation.
+Postgres and Redis are still single-instance stateful services. Postgres is protected
+by a backup CronJob and manual restore procedure, but real database HA still
+requires managed Postgres or a replicated database topology.
+
+## PostgreSQL Backup and Restore
+
+The manifests create:
+
+- `postgres-backups`: a dedicated PVC for dump files.
+- `postgres-backup`: a nightly CronJob that runs `pg_dump -Fc`.
+
+Run an immediate backup:
+
+```bash
+./scripts/backup-postgres-k8s.sh
+```
+
+Restore is intentionally explicit because it drops and recreates the configured
+database from a backup dump:
+
+```bash
+CONFIRM_RESTORE=I_UNDERSTAND_THIS_OVERWRITES_POSTGRES \
+  ./scripts/restore-postgres-k8s.sh latest.dump
+```
+
+For the tenant cluster, use the same scripts with the tenant kubeconfig/context:
+
+```bash
+KUBECONFIG_FILE=tenant-pisofire-kubeconfig.yaml \
+EXPECTED_CONTEXT=tenant-pisofire-context \
+NAMESPACE=tenant-pisofire \
+./scripts/backup-postgres-k8s.sh
+```
 
 ## Kubernetes Smoke Test
 
@@ -134,6 +164,7 @@ The smoke test validates the deployment through Kubernetes Services, not only th
 - waits for `postgres`, `redis`, `medusa`, `medusa-worker` and `storefront` rollouts
 - waits for `bootstrap-admin` and `bootstrap-store` to complete
 - checks HPA, PodDisruptionBudget and Kubernetes metrics API availability
+- checks PostgreSQL backup CronJob and backup PVC availability
 - starts temporary local port-forwards to Medusa and the storefront
 - checks Medusa `/health`, `/readyz` and `/store-readyz`
 - checks storefront `/api/health` and `/api/ready`
@@ -156,6 +187,7 @@ Storefront health: 200
 Storefront readiness: 200
 Storefront metrics: 200
 Autoscaling controls: present
+PostgreSQL backup controls: present
 Admin authentication: passed
 Storefront page: 307
 Service DNS checks: passed

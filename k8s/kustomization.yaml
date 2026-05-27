@@ -6,7 +6,9 @@ resources:
   - configmap.yaml
   - secret.yaml
   - postgres-pvc.yaml
+  - postgres-backup-pvc.yaml
   - postgres.yaml
+  - postgres-backup.yaml
   - redis.yaml
   - medusa.yaml
   - medusa-worker.yaml

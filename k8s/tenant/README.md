@@ -79,10 +79,30 @@ The tenant overlay includes the M2 monitoring and autoscaling resources:
 - Grafana dashboard ConfigMaps.
 - HPAs for `medusa`, `storefront` and `medusa-worker`.
 - PodDisruptionBudgets for the stateless request path and worker.
+- A `postgres-backup` CronJob and `postgres-backups` PVC for database recovery.
 
 The backend and storefront start with two replicas and can scale to five when CPU or
 memory utilization crosses the configured HPA targets. The worker starts with one
 replica and can scale to three.
+
+Run an immediate tenant backup:
+
+```bash
+KUBECONFIG_FILE=tenant-pisofire-kubeconfig.yaml \
+EXPECTED_CONTEXT=tenant-pisofire-context \
+NAMESPACE=tenant-pisofire \
+./scripts/backup-postgres-k8s.sh
+```
+
+Restore requires explicit confirmation:
+
+```bash
+KUBECONFIG_FILE=tenant-pisofire-kubeconfig.yaml \
+EXPECTED_CONTEXT=tenant-pisofire-context \
+NAMESPACE=tenant-pisofire \
+CONFIRM_RESTORE=I_UNDERSTAND_THIS_OVERWRITES_POSTGRES \
+./scripts/restore-postgres-k8s.sh latest.dump
+```
 
 By default, images are built and pushed as:
 

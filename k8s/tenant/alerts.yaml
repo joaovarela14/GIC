@@ -69,6 +69,26 @@ spec:
             summary: "PisoFire PostgreSQL connection count high"
             description: "{{ $value }} active connections."
 
+        - alert: PisofirePostgresBackupFailed
+          expr: kube_job_status_failed{namespace="tenant-pisofire", job_name=~"postgres-backup-.+"} > 0
+          for: 5m
+          labels:
+            severity: critical
+            tenant: pisofire
+          annotations:
+            summary: "PisoFire PostgreSQL backup job failed"
+            description: "A PostgreSQL backup job failed and must be investigated before relying on DR."
+
+        - alert: PisofirePostgresBackupStale
+          expr: time() - kube_cronjob_status_last_successful_time{namespace="tenant-pisofire", cronjob="postgres-backup"} > 93600
+          for: 15m
+          labels:
+            severity: warning
+            tenant: pisofire
+          annotations:
+            summary: "PisoFire PostgreSQL backup is stale"
+            description: "The postgres-backup CronJob has not completed successfully in more than 26 hours."
+
     - name: pisofire.redis
       rules:
         - alert: PisofireRedisDown

@@ -4,7 +4,9 @@ namespace: tenant-pisofire
 resources:
   - configmap.yaml
   - postgres-pvc.yaml
+  - postgres-backup-pvc.yaml
   - postgres.yaml
+  - postgres-backup.yaml
   - redis.yaml
   - medusa.yaml
   - medusa-worker.yaml
