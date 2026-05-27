@@ -60,7 +60,7 @@ spec:
             description: "Cannot reach postgres-exporter; database may be unavailable."
 
         - alert: PisofirePostgresHighConnections
-          expr: pg_stat_activity_count{namespace="tenant-pisofire"} > 80
+          expr: sum(pg_stat_database_numbackends{namespace="tenant-pisofire"}) > 80
           for: 5m
           labels:
             severity: warning

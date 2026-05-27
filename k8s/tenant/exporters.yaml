@@ -18,6 +18,12 @@ spec:
       containers:
         - name: postgres-exporter
           image: prometheuscommunity/postgres-exporter:v0.15.0
+          args:
+            - --auto-discover-databases
+            - --collector.stat_activity_autovacuum
+            - --collector.stat_bgwriter
+            - --collector.stat_database
+            - --collector.stat_user_tables
           ports:
             - containerPort: 9187
               name: metrics
@@ -27,6 +33,10 @@ spec:
                 secretKeyRef:
                   name: pisofire-secrets
                   key: DATABASE_URL
+            - name: DATA_SOURCE_URI_FILE
+              value: ""
+            - name: PGSSLMODE
+              value: disable
 ---
 apiVersion: v1
 kind: Service

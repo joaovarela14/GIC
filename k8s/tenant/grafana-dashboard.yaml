@@ -1,69 +1,141 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: pisofire-grafana-dashboard
+  name: pisofire-grafana-dashboard-infra
   namespace: tenant-pisofire
   labels:
     grafana_dashboard: "1"
 data:
-  pisofire-dashboard.json: |
+  pisofire-infra.json: |
     {
-      "title": "PisoFire - Observability",
-      "uid": "pisofire-main",
+      "title": "PisoFire - Infrastructure",
+      "uid": "pisofire-infra",
       "tags": ["pisofire"],
       "timezone": "browser",
-      "refresh": "15s",
+      "refresh": "30s",
       "time": { "from": "now-1h", "to": "now" },
       "panels": [
         {
           "id": 1,
-          "title": "HTTP Request Rate (req/s)",
+          "title": "Ready Pods per Workload",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "sum(rate(pisofire_medusa_http_requests_total[1m])) by (route)",
-              "legendFormat": "{{route}}"
+              "expr": "kube_deployment_status_replicas_ready{namespace=\"tenant-pisofire\"}",
+              "legendFormat": "{{deployment}}"
             }
           ]
         },
         {
           "id": 2,
-          "title": "HTTP Error Rate (%)",
+          "title": "Pod Restarts",
           "type": "timeseries",
           "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{status_code=~\"5..\"}[1m])) / sum(rate(pisofire_medusa_http_requests_total[1m]))",
-              "legendFormat": "error rate %"
+              "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"tenant-pisofire\"}[1h])",
+              "legendFormat": "{{pod}} / {{container}}"
             }
           ]
         },
         {
           "id": 3,
-          "title": "HTTP Latency Percentiles (s)",
+          "title": "CPU Usage per Pod (cores)",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "histogram_quantile(0.50, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[1m])) by (le))",
-              "legendFormat": "p50"
-            },
-            {
-              "expr": "histogram_quantile(0.95, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[1m])) by (le))",
-              "legendFormat": "p95"
-            },
-            {
-              "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[1m])) by (le))",
-              "legendFormat": "p99"
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"tenant-pisofire\", container!=\"\"}[2m])) by (pod)",
+              "legendFormat": "{{pod}}"
             }
           ]
         },
         {
           "id": 4,
-          "title": "Node.js Memory Usage (bytes)",
+          "title": "Memory Usage per Pod (bytes)",
           "type": "timeseries",
           "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(container_memory_working_set_bytes{namespace=\"tenant-pisofire\", container!=\"\"}) by (pod)",
+              "legendFormat": "{{pod}}"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "PVC Disk Usage (%)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "100 * kubelet_volume_stats_used_bytes{namespace=\"tenant-pisofire\"} / kubelet_volume_stats_capacity_bytes{namespace=\"tenant-pisofire\"}",
+              "legendFormat": "{{persistentvolumeclaim}}"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "title": "PVC Disk Used / Capacity (bytes)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "kubelet_volume_stats_used_bytes{namespace=\"tenant-pisofire\"}",
+              "legendFormat": "used: {{persistentvolumeclaim}}"
+            },
+            {
+              "expr": "kubelet_volume_stats_capacity_bytes{namespace=\"tenant-pisofire\"}",
+              "legendFormat": "capacity: {{persistentvolumeclaim}}"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "PostgreSQL Active Connections",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 24, "w": 8, "h": 8 },
+          "targets": [
+            {
+              "expr": "pg_stat_database_numbackends{namespace=\"tenant-pisofire\"}",
+              "legendFormat": "{{datname}}"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "title": "PostgreSQL DB Size (bytes)",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 24, "w": 8, "h": 8 },
+          "targets": [
+            {
+              "expr": "pg_database_size_bytes{namespace=\"tenant-pisofire\"}",
+              "legendFormat": "{{datname}}"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "title": "Redis Memory Used (bytes)",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 24, "w": 8, "h": 8 },
+          "targets": [
+            {
+              "expr": "redis_memory_used_bytes{namespace=\"tenant-pisofire\"}",
+              "legendFormat": "used"
+            },
+            {
+              "expr": "redis_memory_max_bytes{namespace=\"tenant-pisofire\"}",
+              "legendFormat": "max"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "title": "Medusa Node.js Heap (bytes)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 32, "w": 12, "h": 8 },
           "targets": [
             {
               "expr": "pisofire_medusa_nodejs_heap_size_used_bytes",
@@ -76,50 +148,229 @@ data:
           ]
         },
         {
-          "id": 5,
-          "title": "PostgreSQL Active Connections",
+          "id": 11,
+          "title": "Medusa Event Loop Lag (seconds)",
           "type": "timeseries",
-          "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+          "gridPos": { "x": 12, "y": 32, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "pg_stat_activity_count{namespace=\"tenant-pisofire\"}",
-              "legendFormat": "connections"
+              "expr": "pisofire_medusa_nodejs_eventloop_lag_seconds",
+              "legendFormat": "event loop lag"
+            }
+          ]
+        }
+      ],
+      "schemaVersion": 36
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pisofire-grafana-dashboard-svc
+  namespace: tenant-pisofire
+  labels:
+    grafana_dashboard: "1"
+data:
+  pisofire-service.json: |
+    {
+      "title": "PisoFire - Service Health",
+      "uid": "pisofire-svc",
+      "tags": ["pisofire"],
+      "timezone": "browser",
+      "refresh": "15s",
+      "time": { "from": "now-1h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Medusa Availability (success rate %)",
+          "description": "Percentage of non-5xx responses. SLO target: 99.5%",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{status_code!~\"5..\"}[5m])) / sum(rate(pisofire_medusa_http_requests_total[5m]))",
+              "legendFormat": "availability %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "steps": [
+                  { "color": "red", "value": 0 },
+                  { "color": "yellow", "value": 99 },
+                  { "color": "green", "value": 99.5 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "Storefront Backend Up",
+          "description": "1 = Medusa reachable from storefront, 0 = down",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "pisofire_storefront_backend_up",
+              "legendFormat": "backend up"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Request Rate per Endpoint (req/s)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(pisofire_medusa_http_requests_total[1m])) by (route)",
+              "legendFormat": "{{route}}"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Error Rate per Endpoint (%)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{status_code=~\"5..\"}[1m])) by (route) / sum(rate(pisofire_medusa_http_requests_total[1m])) by (route)",
+              "legendFormat": "{{route}}"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "Latency p50 / p95 / p99 (s) — all routes",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le))",
+              "legendFormat": "p95"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le))",
+              "legendFormat": "p99"
             }
           ]
         },
         {
           "id": 6,
-          "title": "Redis Connected Clients",
+          "title": "Checkout Path — Request Rate (req/s)",
+          "description": "Critical user journey: product page → cart → payment",
           "type": "timeseries",
-          "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+          "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "redis_connected_clients{namespace=\"tenant-pisofire\"}",
-              "legendFormat": "clients"
+              "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/products.*\"}[1m]))",
+              "legendFormat": "product page"
+            },
+            {
+              "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\"}[1m]))",
+              "legendFormat": "cart"
+            },
+            {
+              "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\"}[1m]))",
+              "legendFormat": "payment"
+            },
+            {
+              "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/orders.*\"}[1m]))",
+              "legendFormat": "orders"
             }
           ]
         },
         {
           "id": 7,
-          "title": "Redis Memory Used (bytes)",
+          "title": "Checkout Path — Error Rate (%)",
+          "description": "5xx errors on the buying path",
           "type": "timeseries",
-          "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+          "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "redis_memory_used_bytes{namespace=\"tenant-pisofire\"}",
-              "legendFormat": "memory used"
+              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\", status_code=~\"5..\"}[1m])) / sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\"}[1m]))",
+              "legendFormat": "cart errors %"
+            },
+            {
+              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\", status_code=~\"5..\"}[1m])) / sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\"}[1m]))",
+              "legendFormat": "payment errors %"
             }
           ]
         },
         {
           "id": 8,
-          "title": "PostgreSQL DB Size (bytes)",
+          "title": "Checkout Path — Latency p99 (s)",
           "type": "timeseries",
-          "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+          "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 },
           "targets": [
             {
-              "expr": "pg_database_size_bytes{namespace=\"tenant-pisofire\"}",
-              "legendFormat": "{{datname}}"
+              "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket{route=~\"/store/products.*\"}[2m])) by (le))",
+              "legendFormat": "product p99"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket{route=~\"/store/carts.*\"}[2m])) by (le))",
+              "legendFormat": "cart p99"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket{route=~\"/store/payment.*\"}[2m])) by (le))",
+              "legendFormat": "payment p99"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "title": "Store Entity Counts",
+          "description": "Products, orders, regions, users in the store",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 40, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "pisofire_medusa_store_entity_count",
+              "legendFormat": "{{entity}}"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "title": "Dependency Health",
+          "description": "1 = up, 0 = down (database and redis from Medusa's perspective)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 40, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "pisofire_medusa_dependency_up",
+              "legendFormat": "{{dependency}}"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "title": "Storefront Backend Readiness Latency (s)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 48, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(pisofire_storefront_backend_ready_latency_seconds_bucket[2m])) by (le))",
+              "legendFormat": "p95"
+            }
+          ]
+        },
+        {
+          "id": 12,
+          "title": "HTTP Response Time Distribution (heatmap)",
+          "type": "heatmap",
+          "gridPos": { "x": 12, "y": 48, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le)",
+              "legendFormat": "{{le}}",
+              "format": "heatmap"
             }
           ]
         }
