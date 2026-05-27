@@ -63,8 +63,10 @@ IMAGE_TAG=$(git rev-parse --short HEAD) ./scripts/deploy-tenant-k8s.sh
 ```
 
 The deploy script checks that the kubeconfig context is `tenant-pisofire-context`.
-It deletes and recreates only the `bootstrap-store` Job before applying, because
-Kubernetes Jobs cannot be updated in place when their image tag changes.
+It deletes and recreates the bootstrap Jobs before applying, because Kubernetes Jobs
+cannot be updated in place when their image tag changes. It then waits for
+`medusa`, `medusa-worker` and `storefront` rollouts. If the application rollout
+fails, it runs `kubectl rollout undo` for those deployments and exits with a failure.
 
 After deployment, run:
 

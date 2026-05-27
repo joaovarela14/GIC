@@ -7,6 +7,8 @@ NAMESPACE="${NAMESPACE:-pisofire}"
 MEDUSA_IMAGE="my-medusa-store-medusa:latest"
 STOREFRONT_IMAGE="my-medusa-store-storefront:latest"
 DEPENDENCY_IMAGES="postgres:15-alpine redis:7-alpine busybox:1.36 rancher/mirrored-library-busybox:1.36.1"
+APP_DEPLOYMENTS="medusa medusa-worker storefront"
+ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-240s}"
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -18,6 +20,44 @@ require_command() {
 require_command docker
 require_command k3d
 require_command kubectl
+
+show_recent_events() {
+  echo "Recent events in namespace $NAMESPACE:" >&2
+  kubectl get events -n "$NAMESPACE" --sort-by=.lastTimestamp 2>/dev/null | tail -20 >&2 || true
+}
+
+wait_for_app_rollouts() {
+  for deployment in $APP_DEPLOYMENTS; do
+    if ! kubectl rollout status -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT" "deployment/$deployment"; then
+      echo "Rollout failed for deployment/$deployment." >&2
+      return 1
+    fi
+  done
+}
+
+rollback_app_deployments() {
+  rollback_failed=false
+
+  echo "Rolling back application deployments to the previous ReplicaSets." >&2
+  for deployment in $APP_DEPLOYMENTS; do
+    if ! kubectl rollout undo -n "$NAMESPACE" "deployment/$deployment" >&2; then
+      echo "Could not start rollback for deployment/$deployment." >&2
+      rollback_failed=true
+    fi
+  done
+
+  for deployment in $APP_DEPLOYMENTS; do
+    if ! kubectl rollout status -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT" "deployment/$deployment" >&2; then
+      echo "Rollback did not complete for deployment/$deployment." >&2
+      rollback_failed=true
+    fi
+  done
+
+  if [ "$rollback_failed" = "true" ]; then
+    echo "Rollback was attempted but did not fully complete." >&2
+    return 1
+  fi
+}
 
 CURRENT_CONTEXT="$(kubectl config current-context 2>/dev/null || true)"
 CURRENT_CLUSTER="$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)"
@@ -101,15 +141,37 @@ echo "Importing dependency images into k3d cluster $CLUSTER_NAME"
 k3d image import $DEPENDENCY_IMAGES -c "$CLUSTER_NAME"
 
 echo "Applying Kubernetes manifests"
-kubectl apply -k "$ROOT_DIR/k8s"
+if ! kubectl apply -k "$ROOT_DIR/k8s"; then
+  echo "kubectl apply failed. Attempting application rollback." >&2
+  rollback_app_deployments || true
+  show_recent_events
+  exit 1
+fi
 
 if [ "$NAMESPACE_EXISTS" = "true" ]; then
   echo "Restarting application deployments to pick up freshly imported :latest images"
-  kubectl rollout restart -n "$NAMESPACE" deployment/medusa deployment/medusa-worker deployment/storefront
+  if ! kubectl rollout restart -n "$NAMESPACE" deployment/medusa deployment/medusa-worker deployment/storefront; then
+    echo "Could not restart application deployments. Attempting rollback." >&2
+    rollback_app_deployments || true
+    show_recent_events
+    exit 1
+  fi
+fi
+
+echo "Waiting for application rollouts"
+if ! wait_for_app_rollouts; then
+  echo "Application rollout failed after deploy. Starting automatic rollback." >&2
+  rollback_app_deployments || true
+  kubectl get pods -n "$NAMESPACE" >&2 || true
+  show_recent_events
+  exit 1
 fi
 
 echo "Current pods in namespace $NAMESPACE"
 kubectl get pods -n "$NAMESPACE"
 
-echo "Done. Watch rollout with:"
-echo "kubectl get pods -n $NAMESPACE -w"
+echo "Deploy completed successfully."
+echo "Current application rollout history:"
+for deployment in $APP_DEPLOYMENTS; do
+  kubectl rollout history -n "$NAMESPACE" "deployment/$deployment"
+done

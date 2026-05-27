@@ -27,6 +27,8 @@ The script:
 - imports dependency images used by the manifests
 - recreates the bootstrap jobs when redeploying
 - applies the manifests in `k8s/`
+- waits for `medusa`, `medusa-worker` and `storefront` rollouts
+- automatically rolls those deployments back if apply/restart/rollout fails
 
 The local Kubernetes deployment includes two bootstrap jobs:
 

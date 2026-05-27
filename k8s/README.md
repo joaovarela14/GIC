@@ -53,6 +53,10 @@ Build, import, and apply in one step:
 ./scripts/deploy-k8s.sh
 ```
 
+The script waits for `medusa`, `medusa-worker` and `storefront` rollouts. If the
+application rollout fails, it runs `kubectl rollout undo` for those deployments and
+exits with a failure so the broken version is not left serving.
+
 Or run the steps manually.
 
 Apply the manifests:

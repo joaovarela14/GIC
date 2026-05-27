@@ -8,6 +8,8 @@ EXPECTED_CONTEXT="${EXPECTED_CONTEXT:-tenant-pisofire-context}"
 NAMESPACE="${NAMESPACE:-tenant-pisofire}"
 IMAGE_PREFIX="${IMAGE_PREFIX:-registry.deti/tenant-pisofire}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
+APP_DEPLOYMENTS="medusa medusa-worker storefront"
+ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -18,12 +20,54 @@ require_command() {
 
 require_command kubectl
 
+kubectl_tenant() {
+  kubectl --kubeconfig "$KUBECONFIG_FILE" "$@"
+}
+
+show_recent_events() {
+  echo "Recent events in namespace $NAMESPACE:" >&2
+  kubectl_tenant get events -n "$NAMESPACE" --sort-by=.lastTimestamp 2>/dev/null | tail -20 >&2 || true
+}
+
+wait_for_app_rollouts() {
+  for deployment in $APP_DEPLOYMENTS; do
+    if ! kubectl_tenant rollout status -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT" "deployment/$deployment"; then
+      echo "Rollout failed for deployment/$deployment." >&2
+      return 1
+    fi
+  done
+}
+
+rollback_app_deployments() {
+  rollback_failed=false
+
+  echo "Rolling back application deployments to the previous ReplicaSets." >&2
+  for deployment in $APP_DEPLOYMENTS; do
+    if ! kubectl_tenant rollout undo -n "$NAMESPACE" "deployment/$deployment" >&2; then
+      echo "Could not start rollback for deployment/$deployment." >&2
+      rollback_failed=true
+    fi
+  done
+
+  for deployment in $APP_DEPLOYMENTS; do
+    if ! kubectl_tenant rollout status -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT" "deployment/$deployment" >&2; then
+      echo "Rollback did not complete for deployment/$deployment." >&2
+      rollback_failed=true
+    fi
+  done
+
+  if [ "$rollback_failed" = "true" ]; then
+    echo "Rollback was attempted but did not fully complete." >&2
+    return 1
+  fi
+}
+
 if [ ! -f "$KUBECONFIG_FILE" ]; then
   echo "Missing kubeconfig: $KUBECONFIG_FILE" >&2
   exit 1
 fi
 
-CURRENT_CONTEXT="$(kubectl --kubeconfig "$KUBECONFIG_FILE" config current-context 2>/dev/null || true)"
+CURRENT_CONTEXT="$(kubectl_tenant config current-context 2>/dev/null || true)"
 
 if [ "$CURRENT_CONTEXT" != "$EXPECTED_CONTEXT" ]; then
   echo "Refusing to deploy." >&2
@@ -73,10 +117,33 @@ else
 fi
 
 echo "Applying tenant overlay to namespace $NAMESPACE"
-kubectl --kubeconfig "$KUBECONFIG_FILE" delete job bootstrap-admin -n "$NAMESPACE" --ignore-not-found
-kubectl --kubeconfig "$KUBECONFIG_FILE" delete job bootstrap-store -n "$NAMESPACE" --ignore-not-found
-kubectl --kubeconfig "$KUBECONFIG_FILE" apply -k "$OVERLAY_DIR"
-kubectl --kubeconfig "$KUBECONFIG_FILE" rollout restart deployment/medusa deployment/medusa-worker deployment/storefront -n "$NAMESPACE"
+kubectl_tenant delete job bootstrap-admin -n "$NAMESPACE" --ignore-not-found
+kubectl_tenant delete job bootstrap-store -n "$NAMESPACE" --ignore-not-found
+if ! kubectl_tenant apply -k "$OVERLAY_DIR"; then
+  echo "kubectl apply failed. Attempting application rollback." >&2
+  rollback_app_deployments || true
+  show_recent_events
+  exit 1
+fi
 
-echo "Done. Watch rollout with:"
-echo "kubectl --kubeconfig $KUBECONFIG_FILE get pods -n $NAMESPACE -w"
+if ! kubectl_tenant rollout restart deployment/medusa deployment/medusa-worker deployment/storefront -n "$NAMESPACE"; then
+  echo "Could not restart application deployments. Attempting rollback." >&2
+  rollback_app_deployments || true
+  show_recent_events
+  exit 1
+fi
+
+echo "Waiting for application rollouts"
+if ! wait_for_app_rollouts; then
+  echo "Application rollout failed after tenant deploy. Starting automatic rollback." >&2
+  rollback_app_deployments || true
+  kubectl_tenant get pods -n "$NAMESPACE" >&2 || true
+  show_recent_events
+  exit 1
+fi
+
+echo "Tenant deploy completed successfully."
+echo "Current application rollout history:"
+for deployment in $APP_DEPLOYMENTS; do
+  kubectl_tenant rollout history -n "$NAMESPACE" "deployment/$deployment"
+done
