@@ -1,12 +1,11 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: postgres
   namespace: pisofire
 spec:
-  replicas: 1
-  strategy:
-    type: Recreate
+  serviceName: postgres-headless
+  replicas: 2
   selector:
     matchLabels:
       app: postgres
@@ -38,8 +37,65 @@ spec:
                 secretKeyRef:
                   name: pisofire-secrets
                   key: POSTGRES_PASSWORD
+            - name: POSTGRES_REPLICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pisofire-secrets
+                  key: POSTGRES_REPLICATION_PASSWORD
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+          command:
+            - sh
+            - -ec
+            - |
+              ordinal="${HOSTNAME##*-}"
+
+              if [ "$ordinal" = "0" ]; then
+                mkdir -p /docker-entrypoint-initdb.d
+                cat > /docker-entrypoint-initdb.d/10-replication-user.sh <<'EOF'
+              #!/bin/sh
+              set -eu
+              echo "host replication replicator all scram-sha-256" >> "$PGDATA/pg_hba.conf"
+              psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<SQL
+              DO \$\$
+              BEGIN
+                IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'replicator') THEN
+                  CREATE ROLE replicator WITH REPLICATION LOGIN PASSWORD '${POSTGRES_REPLICATION_PASSWORD}';
+                END IF;
+              END
+              \$\$;
+              SQL
+              EOF
+                chmod +x /docker-entrypoint-initdb.d/10-replication-user.sh
+
+                exec docker-entrypoint.sh postgres \
+                  -c listen_addresses='*' \
+                  -c wal_level=replica \
+                  -c max_wal_senders=10 \
+                  -c max_replication_slots=10 \
+                  -c hot_standby=on
+              fi
+
+              if [ ! -s "$PGDATA/PG_VERSION" ]; then
+                rm -rf "$PGDATA"/*
+                until PGPASSWORD="$POSTGRES_REPLICATION_PASSWORD" pg_basebackup \
+                  -h postgres-0.postgres-headless \
+                  -D "$PGDATA" \
+                  -U replicator \
+                  -Fp \
+                  -Xs \
+                  -P \
+                  -R; do
+                  echo "Waiting for primary Postgres to accept replication connections..."
+                  sleep 5
+                done
+                chown -R postgres:postgres "$PGDATA"
+                chmod 700 "$PGDATA"
+              fi
+
+              exec docker-entrypoint.sh postgres \
+                -c listen_addresses='*' \
+                -c hot_standby=on
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
@@ -66,10 +122,29 @@ spec:
                 - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
             initialDelaySeconds: 20
             periodSeconds: 20
-      volumes:
-        - name: postgres-data
-          persistentVolumeClaim:
-            claimName: postgres-data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 500Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: pisofire
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
 ---
 apiVersion: v1
 kind: Service
@@ -79,6 +154,21 @@ metadata:
 spec:
   selector:
     app: postgres
+    statefulset.kubernetes.io/pod-name: postgres-0
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-replica
+  namespace: pisofire
+spec:
+  selector:
+    app: postgres
+    statefulset.kubernetes.io/pod-name: postgres-1
   ports:
     - name: postgres
       port: 5432

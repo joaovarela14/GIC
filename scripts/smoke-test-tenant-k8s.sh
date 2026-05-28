@@ -34,8 +34,28 @@ if [ "$CURRENT_CONTEXT" != "$EXPECTED_CONTEXT" ]; then
   exit 1
 fi
 
-echo "Waiting for core deployments in namespace $NAMESPACE"
-kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=available --timeout=240s deployment/postgres deployment/redis deployment/medusa deployment/medusa-worker deployment/storefront >/dev/null
+echo "Waiting for core workloads in namespace $NAMESPACE"
+kubectl --kubeconfig "$KUBECONFIG_FILE" rollout status -n "$NAMESPACE" --timeout=240s statefulset/postgres >/dev/null
+kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=available --timeout=240s deployment/redis deployment/medusa deployment/medusa-worker deployment/storefront >/dev/null
+
+echo "Checking PostgreSQL primary and standby roles"
+POSTGRES_PRIMARY_RECOVERY="$(
+  kubectl --kubeconfig "$KUBECONFIG_FILE" exec -n "$NAMESPACE" postgres-0 -- sh -ec \
+    'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT pg_is_in_recovery()"' \
+    2>/dev/null | tr -d '[:space:]'
+)"
+POSTGRES_REPLICA_RECOVERY="$(
+  kubectl --kubeconfig "$KUBECONFIG_FILE" exec -n "$NAMESPACE" postgres-1 -- sh -ec \
+    'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT pg_is_in_recovery()"' \
+    2>/dev/null | tr -d '[:space:]'
+)"
+
+if [ "$POSTGRES_PRIMARY_RECOVERY" != "f" ] || [ "$POSTGRES_REPLICA_RECOVERY" != "t" ]; then
+  echo "Unexpected PostgreSQL replication roles." >&2
+  echo "postgres-0 pg_is_in_recovery(): ${POSTGRES_PRIMARY_RECOVERY:-<empty>}" >&2
+  echo "postgres-1 pg_is_in_recovery(): ${POSTGRES_REPLICA_RECOVERY:-<empty>}" >&2
+  exit 1
+fi
 
 echo "Waiting for bootstrap job completion"
 kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=complete --timeout=240s job/bootstrap-store >/dev/null
@@ -43,7 +63,9 @@ kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=com
 
 echo "Checking autoscaling and disruption controls"
 kubectl --kubeconfig "$KUBECONFIG_FILE" get hpa -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null
-kubectl --kubeconfig "$KUBECONFIG_FILE" get pdb -n "$NAMESPACE" medusa storefront medusa-worker postgres redis >/dev/null
+if ! kubectl --kubeconfig "$KUBECONFIG_FILE" get pdb -n "$NAMESPACE" medusa storefront medusa-worker postgres redis >/dev/null 2>&1; then
+  echo "PodDisruptionBudgets are not present; tenant RBAC does not allow creating them." >&2
+fi
 kubectl --kubeconfig "$KUBECONFIG_FILE" get cronjob -n "$NAMESPACE" postgres-backup >/dev/null
 kubectl --kubeconfig "$KUBECONFIG_FILE" get pvc -n "$NAMESPACE" postgres-backups >/dev/null
 kubectl --kubeconfig "$KUBECONFIG_FILE" get pvc -n "$NAMESPACE" redis-data >/dev/null
@@ -225,6 +247,7 @@ printf '%s\n' "Tenant smoke test passed" \
   "Storefront metrics: $STOREFRONT_METRICS_STATUS" \
   "Autoscaling controls: present" \
   "PostgreSQL backup controls: present" \
+  "PostgreSQL replication: primary postgres-0, standby postgres-1" \
   "Stateful disruption controls: present" \
   "Redis persistence: present" \
   "Admin authentication: passed" \

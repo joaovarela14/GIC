@@ -1,6 +1,7 @@
 # Known Limits
 
-- PostgreSQL and Redis are single-instance services.
+- PostgreSQL runs as a primary/standby StatefulSet, but failover is manual.
+- Redis is a single-instance service.
 - There is backup and restore, but no automatic database failover.
 - Health checks are dependency-aware, but not version or schema-aware yet.
 - Rollouts are safe RollingUpdates with rollback, but not canary rollouts.

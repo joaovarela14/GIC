@@ -130,6 +130,8 @@ if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
   echo "Deleting previous bootstrap jobs so immutable job template changes can apply"
   kubectl delete job -n "$NAMESPACE" bootstrap-admin --ignore-not-found
   kubectl delete job -n "$NAMESPACE" bootstrap-store --ignore-not-found
+  echo "Deleting legacy PostgreSQL Deployment before applying the StatefulSet"
+  kubectl delete deployment -n "$NAMESPACE" postgres --ignore-not-found
 fi
 
 echo "Ensuring dependency images are available locally"

@@ -211,15 +211,20 @@ Run the failure-injection check:
 It deletes one Medusa pod and one storefront pod, verifies both Services from inside
 the cluster, and waits for the Deployments to recover.
 
-Postgres and Redis remain single-instance stateful dependencies. They are bounded by
-requests/limits and probes, and have PodDisruptionBudgets with `maxUnavailable: 0`
-to block voluntary evictions that would intentionally take the only instance down.
-Postgres also has dump-based backup and restore automation. Redis uses a PVC with
-AOF enabled, so pod recreation can recover Redis state from disk instead of starting
-from a purely ephemeral cache.
+Postgres runs as a two-pod StatefulSet: `postgres-0` is the writable primary and
+`postgres-1` follows it as a standby replica. The `postgres` Service points only
+at `postgres-0`, so Medusa keeps writing to a single primary endpoint. This does
+not include automatic failover; promotion and Service switching would still be a
+manual recovery step. Redis remains a single-instance stateful dependency with a
+PVC and AOF enabled.
 
-Full database/cache HA is still a known limit. A production version should use a
-managed Postgres/Redis service or a Kubernetes operator that handles replication,
+Migrating from the older single-pod Postgres Deployment creates new StatefulSet
+PVCs named from the `postgres-data` volume claim template. The old `postgres-data`
+PVC is not copied automatically. Take a backup before deploying this change and
+restore it into the new primary if existing data must be preserved.
+
+Full automatic database/cache HA is still a known limit. A production version
+should use managed Postgres/Redis services or Kubernetes operators that handle
 leader election, failover, backups and client routing.
 
 ## PostgreSQL Backup and Restore
@@ -330,7 +335,7 @@ kubectl logs -n pisofire deployment/storefront
 ## Current Limits
 
 - Medusa and the storefront are replicated and autoscaled, but the local cluster is still single-node.
-- Postgres is a single instance backed by one PVC and backup/restore automation.
+- Postgres has one primary and one standby replica, but failover is manual.
 - Redis is single-instance with PVC/AOF persistence, but no Sentinel or Redis Cluster failover.
 - Store and admin bootstrap depend on one-shot Kubernetes jobs.
 - The stack is still a local single-node baseline, not a production-ready deployment.

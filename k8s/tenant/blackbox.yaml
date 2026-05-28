@@ -83,3 +83,23 @@ spec:
         - http://medusa.tenant-pisofire.svc.cluster.local:9000/store-readyz
       labels:
         tenant: pisofire
+  # Attach a friendly `endpoint` label to each probe sample so dashboards
+  # can query `probe_success{endpoint="storefront"}` instead of pinning to
+  # the full target URL via the `instance` label.
+  metricRelabelings:
+    - sourceLabels: [instance]
+      regex: 'http://storefront\..*/api/health'
+      targetLabel: endpoint
+      replacement: storefront
+    - sourceLabels: [instance]
+      regex: 'http://medusa\..*/health'
+      targetLabel: endpoint
+      replacement: medusa
+    - sourceLabels: [instance]
+      regex: 'http://medusa\..*/readyz'
+      targetLabel: endpoint
+      replacement: medusa-readyz
+    - sourceLabels: [instance]
+      regex: 'http://medusa\..*/store-readyz'
+      targetLabel: endpoint
+      replacement: medusa-store-readyz

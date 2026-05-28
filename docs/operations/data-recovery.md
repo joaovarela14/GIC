@@ -2,11 +2,13 @@
 
 ## PostgreSQL
 
-PostgreSQL is still a single instance. It is not highly available.
+PostgreSQL runs as a two-pod StatefulSet with a fixed primary and one standby
+replica. It is replicated, but it does not provide automatic failover.
 
 Hardening added:
 
-- PostgreSQL uses a PVC for data.
+- PostgreSQL uses one PVC per StatefulSet pod.
+- `postgres-0` is the writable primary and `postgres-1` is the standby.
 - A `postgres-backup` CronJob creates nightly `pg_dump -Fc` backups.
 - Backups are stored in the `postgres-backups` PVC.
 - `latest.dump` points to the newest dump.
@@ -24,8 +26,8 @@ CONFIRM_RESTORE=I_UNDERSTAND_THIS_OVERWRITES_POSTGRES \
 
 Current limits:
 
-- Real PostgreSQL HA would require managed PostgreSQL or a PostgreSQL operator
-  with replication and failover.
+- Automatic PostgreSQL failover would require managed PostgreSQL or a
+  PostgreSQL operator with leader election and safe primary promotion.
 
 ## Redis
 

@@ -127,8 +127,15 @@ trap cleanup EXIT INT TERM
 
 fail_if_nodes_under_pressure
 
-echo "Waiting for core deployments in namespace $NAMESPACE"
-if ! kubectl wait -n "$NAMESPACE" --for=condition=available --timeout=180s deployment/postgres deployment/redis deployment/medusa deployment/medusa-worker deployment/storefront >/dev/null; then
+echo "Waiting for core workloads in namespace $NAMESPACE"
+if ! kubectl rollout status -n "$NAMESPACE" --timeout=180s statefulset/postgres >/dev/null; then
+  echo "PostgreSQL StatefulSet did not become ready." >&2
+  kubectl get pods -n "$NAMESPACE" >&2 || true
+  show_recent_events
+  exit 1
+fi
+
+if ! kubectl wait -n "$NAMESPACE" --for=condition=available --timeout=180s deployment/redis deployment/medusa deployment/medusa-worker deployment/storefront >/dev/null; then
   echo "Core deployments did not become available." >&2
   kubectl get pods -n "$NAMESPACE" >&2 || true
   show_recent_events
@@ -136,7 +143,7 @@ if ! kubectl wait -n "$NAMESPACE" --for=condition=available --timeout=180s deplo
 fi
 
 echo "Waiting for deployment rollouts to finish"
-for deployment in postgres redis medusa medusa-worker storefront; do
+for deployment in redis medusa medusa-worker storefront; do
   if ! kubectl rollout status -n "$NAMESPACE" --timeout=180s "deployment/$deployment" >/dev/null; then
     echo "Rollout did not finish for deployment/$deployment." >&2
     kubectl get pods -n "$NAMESPACE" >&2 || true
@@ -144,6 +151,25 @@ for deployment in postgres redis medusa medusa-worker storefront; do
     exit 1
   fi
 done
+
+echo "Checking PostgreSQL primary and standby roles"
+POSTGRES_PRIMARY_RECOVERY="$(
+  kubectl exec -n "$NAMESPACE" postgres-0 -- sh -ec \
+    'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT pg_is_in_recovery()"' \
+    2>/dev/null | tr -d '[:space:]'
+)"
+POSTGRES_REPLICA_RECOVERY="$(
+  kubectl exec -n "$NAMESPACE" postgres-1 -- sh -ec \
+    'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT pg_is_in_recovery()"' \
+    2>/dev/null | tr -d '[:space:]'
+)"
+
+if [ "$POSTGRES_PRIMARY_RECOVERY" != "f" ] || [ "$POSTGRES_REPLICA_RECOVERY" != "t" ]; then
+  echo "Unexpected PostgreSQL replication roles." >&2
+  echo "postgres-0 pg_is_in_recovery(): ${POSTGRES_PRIMARY_RECOVERY:-<empty>}" >&2
+  echo "postgres-1 pg_is_in_recovery(): ${POSTGRES_REPLICA_RECOVERY:-<empty>}" >&2
+  exit 1
+fi
 
 echo "Waiting for bootstrap jobs completion"
 if ! kubectl wait -n "$NAMESPACE" --for=condition=complete --timeout=180s job/bootstrap-admin job/bootstrap-store >/dev/null; then
@@ -400,6 +426,7 @@ printf '%s\n' "Smoke test passed" \
   "Storefront metrics: $STOREFRONT_METRICS_STATUS" \
   "Autoscaling controls: present" \
   "PostgreSQL backup controls: present" \
+  "PostgreSQL replication: primary postgres-0, standby postgres-1" \
   "Stateful disruption controls: present" \
   "Redis persistence: present" \
   "Admin authentication: passed" \
