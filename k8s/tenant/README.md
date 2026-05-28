@@ -81,11 +81,17 @@ The tenant overlay includes the M2 monitoring and autoscaling resources:
 - Grafana dashboard ConfigMaps.
 - HPAs for `medusa`, `storefront` and `medusa-worker`.
 - PodDisruptionBudgets for the stateless request path and worker.
+- PodDisruptionBudgets for the single-instance Postgres and Redis dependencies.
 - A `postgres-backup` CronJob and `postgres-backups` PVC for database recovery.
+- A `redis-data` PVC with Redis AOF enabled for Redis recovery after pod recreation.
 
 The backend and storefront start with two replicas and can scale to five when CPU or
 memory utilization crosses the configured HPA targets. The worker starts with one
 replica and can scale to three.
+
+Postgres and Redis are still single-instance dependencies in the tenant overlay.
+The manifest hardens recovery, but full stateful HA requires managed services or
+operators that provide replication and failover.
 
 Run the HPA scale-up demonstration against the tenant cluster:
 

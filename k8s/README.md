@@ -208,8 +208,15 @@ It deletes one Medusa pod and one storefront pod, verifies both Services from in
 the cluster, and waits for the Deployments to recover.
 
 Postgres and Redis remain single-instance stateful dependencies. They are bounded by
-requests/limits and probes. Postgres also has dump-based backup and restore
-automation, but full database/cache HA is still a known limit.
+requests/limits and probes, and have PodDisruptionBudgets with `maxUnavailable: 0`
+to block voluntary evictions that would intentionally take the only instance down.
+Postgres also has dump-based backup and restore automation. Redis uses a PVC with
+AOF enabled, so pod recreation can recover Redis state from disk instead of starting
+from a purely ephemeral cache.
+
+Full database/cache HA is still a known limit. A production version should use a
+managed Postgres/Redis service or a Kubernetes operator that handles replication,
+leader election, failover, backups and client routing.
 
 ## PostgreSQL Backup and Restore
 
@@ -270,6 +277,7 @@ The smoke test:
 - waits for all core deployments and for both bootstrap jobs.
 - checks HPA, PodDisruptionBudget and metrics API availability.
 - checks PostgreSQL backup CronJob and backup PVC availability.
+- checks stateful PodDisruptionBudgets and Redis persistence PVC availability.
 - checks backend health/readiness through `/health`, `/readyz` and `/store-readyz`.
 - checks storefront health/readiness through `/api/health` and `/api/ready`.
 - checks backend and storefront metrics through `/metrics` and `/api/metrics`.
@@ -290,6 +298,8 @@ Storefront readiness: 200
 Storefront metrics: 200
 Autoscaling controls: present
 PostgreSQL backup controls: present
+Stateful disruption controls: present
+Redis persistence: present
 Admin authentication: passed
 Service DNS checks: passed
 Order: order_...
@@ -315,9 +325,9 @@ kubectl logs -n pisofire deployment/storefront
 
 ## Current Limits
 
-- Single replica for every component, including the Medusa server and worker.
-- Postgres is a single instance backed by one PVC.
-- Redis is single-instance and ephemeral.
+- Medusa and the storefront are replicated and autoscaled, but the local cluster is still single-node.
+- Postgres is a single instance backed by one PVC and backup/restore automation.
+- Redis is single-instance with PVC/AOF persistence, but no Sentinel or Redis Cluster failover.
 - Store and admin bootstrap depend on one-shot Kubernetes jobs.
 - The stack is still a local single-node baseline, not a production-ready deployment.
 - The storefront can use `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` when configured, but otherwise still retrieves the Medusa publishable key dynamically at runtime through a custom Medusa store route.

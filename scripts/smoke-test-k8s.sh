@@ -161,7 +161,7 @@ if ! kubectl get hpa -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null;
   exit 1
 fi
 
-if ! kubectl get pdb -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null; then
+if ! kubectl get pdb -n "$NAMESPACE" medusa storefront medusa-worker postgres redis >/dev/null; then
   echo "Expected PodDisruptionBudget resources were not found." >&2
   exit 1
 fi
@@ -173,6 +173,11 @@ fi
 
 if ! kubectl get pvc -n "$NAMESPACE" postgres-backups >/dev/null; then
   echo "Expected PostgreSQL backup PVC was not found." >&2
+  exit 1
+fi
+
+if ! kubectl get pvc -n "$NAMESPACE" redis-data >/dev/null; then
+  echo "Expected Redis persistence PVC was not found." >&2
   exit 1
 fi
 
@@ -395,6 +400,8 @@ printf '%s\n' "Smoke test passed" \
   "Storefront metrics: $STOREFRONT_METRICS_STATUS" \
   "Autoscaling controls: present" \
   "PostgreSQL backup controls: present" \
+  "Stateful disruption controls: present" \
+  "Redis persistence: present" \
   "Admin authentication: passed" \
   "Storefront page: $STOREFRONT_PAGE_STATUS" \
   "Service DNS checks: passed" \

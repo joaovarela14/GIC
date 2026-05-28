@@ -7,12 +7,14 @@ resources:
   - secret.yaml
   - postgres-pvc.yaml
   - postgres-backup-pvc.yaml
+  - redis-pvc.yaml
   - postgres.yaml
   - postgres-backup.yaml
   - redis.yaml
   - medusa.yaml
   - medusa-worker.yaml
   - autoscaling.yaml
+  - stateful-pdb.yaml
   - bootstrap-admin-job.yaml
   - bootstrap-job.yaml
   - storefront.yaml

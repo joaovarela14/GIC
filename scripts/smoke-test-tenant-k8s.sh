@@ -43,9 +43,10 @@ kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=com
 
 echo "Checking autoscaling and disruption controls"
 kubectl --kubeconfig "$KUBECONFIG_FILE" get hpa -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null
-kubectl --kubeconfig "$KUBECONFIG_FILE" get pdb -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null
+kubectl --kubeconfig "$KUBECONFIG_FILE" get pdb -n "$NAMESPACE" medusa storefront medusa-worker postgres redis >/dev/null
 kubectl --kubeconfig "$KUBECONFIG_FILE" get cronjob -n "$NAMESPACE" postgres-backup >/dev/null
 kubectl --kubeconfig "$KUBECONFIG_FILE" get pvc -n "$NAMESPACE" postgres-backups >/dev/null
+kubectl --kubeconfig "$KUBECONFIG_FILE" get pvc -n "$NAMESPACE" redis-data >/dev/null
 
 if ! kubectl --kubeconfig "$KUBECONFIG_FILE" get --raw /apis/metrics.k8s.io/v1beta1/nodes >/dev/null 2>&1; then
   echo "Kubernetes metrics API is unavailable; HPA cannot scale on CPU/memory." >&2
@@ -224,5 +225,7 @@ printf '%s\n' "Tenant smoke test passed" \
   "Storefront metrics: $STOREFRONT_METRICS_STATUS" \
   "Autoscaling controls: present" \
   "PostgreSQL backup controls: present" \
+  "Stateful disruption controls: present" \
+  "Redis persistence: present" \
   "Admin authentication: passed" \
   "Order: $ORDER_ID"

@@ -138,9 +138,14 @@ The script deletes one Medusa pod and one storefront pod, checks the Services fr
 inside the cluster during recovery, and waits for both Deployments to return to the
 desired replica count.
 
-Postgres and Redis are still single-instance stateful services. Postgres is protected
-by a backup CronJob and manual restore procedure, but real database HA still
-requires managed Postgres or a replicated database topology.
+Postgres and Redis are still single-instance stateful services. They are protected
+from voluntary evictions with PodDisruptionBudgets. Postgres is backed by a PVC and
+protected by a backup CronJob plus manual restore procedure. Redis is backed by a
+PVC with AOF enabled so pod recreation does not make it purely ephemeral.
+
+This is resilience and recovery hardening, not full stateful HA. Real database/cache
+HA still requires managed Postgres/Redis or Kubernetes operators such as a
+Postgres operator and Redis Sentinel/Cluster setup.
 
 ## PostgreSQL Backup and Restore
 
@@ -188,6 +193,7 @@ The smoke test validates the deployment through Kubernetes Services, not only th
 - waits for `bootstrap-admin` and `bootstrap-store` to complete
 - checks HPA, PodDisruptionBudget and Kubernetes metrics API availability
 - checks PostgreSQL backup CronJob and backup PVC availability
+- checks stateful PodDisruptionBudgets and Redis persistence PVC availability
 - starts temporary local port-forwards to Medusa and the storefront
 - checks Medusa `/health`, `/readyz` and `/store-readyz`
 - checks storefront `/api/health` and `/api/ready`
@@ -211,6 +217,8 @@ Storefront readiness: 200
 Storefront metrics: 200
 Autoscaling controls: present
 PostgreSQL backup controls: present
+Stateful disruption controls: present
+Redis persistence: present
 Admin authentication: passed
 Storefront page: 307
 Service DNS checks: passed

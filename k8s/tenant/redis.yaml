@@ -5,6 +5,8 @@ metadata:
   namespace: pisofire
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: redis
@@ -20,6 +22,17 @@ spec:
           ports:
             - containerPort: 6379
               name: redis
+          command:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --appendfsync
+            - everysec
+            - --dir
+            - /data
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
           resources:
             requests:
               cpu: 100m
@@ -37,6 +50,10 @@ spec:
               port: 6379
             initialDelaySeconds: 15
             periodSeconds: 20
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data
 ---
 apiVersion: v1
 kind: Service

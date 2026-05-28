@@ -1,0 +1,21 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres
+  namespace: pisofire
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: postgres
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis
+  namespace: pisofire
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: redis
