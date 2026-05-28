@@ -18,6 +18,7 @@ resources:
   - storefront.yaml
   - ingress.yaml
   - exporters.yaml
+  - blackbox.yaml
   - monitor.yaml
   - grafana-dashboard.yaml
   - alerts.yaml

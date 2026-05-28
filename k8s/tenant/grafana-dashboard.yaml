@@ -181,115 +181,87 @@ data:
       "time": { "from": "now-1h", "to": "now" },
       "panels": [
         {
-          "id": 1,
-          "title": "Availability (5m)",
+          "id": 14,
+          "title": "Storefront",
           "type": "stat",
           "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
-          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "unit": "percent" },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "thresholds": {
-                "steps": [
-                  { "color": "red", "value": 0 },
-                  { "color": "yellow", "value": 99 },
-                  { "color": "green", "value": 99.5 }
-                ]
-              }
-            }
-          },
-          "targets": [
-            {
-              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{status_code!~\"5..\"}[5m])) / sum(rate(pisofire_medusa_http_requests_total[5m]))",
-              "legendFormat": "availability"
-            }
-          ]
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none",
+            "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] },
+          "targets": [{ "expr": "probe_success{instance=\"http://storefront.tenant-pisofire.svc.cluster.local:8000/api/health\"}", "legendFormat": "" }]
+        },
+        {
+          "id": 15,
+          "title": "Medusa",
+          "type": "stat",
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none",
+            "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] },
+          "targets": [{ "expr": "probe_success{instance=\"http://medusa.tenant-pisofire.svc.cluster.local:9000/health\"}", "legendFormat": "" }]
+        },
+        {
+          "id": 22,
+          "title": "PostgreSQL",
+          "type": "stat",
+          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none",
+            "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] },
+          "targets": [{ "expr": "pg_up{namespace=\"tenant-pisofire\"}", "legendFormat": "" }]
+        },
+        {
+          "id": 23,
+          "title": "Redis",
+          "type": "stat",
+          "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none",
+            "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] },
+          "targets": [{ "expr": "redis_up{namespace=\"tenant-pisofire\"}", "legendFormat": "" }]
         },
         {
           "id": 13,
           "title": "p99 Latency",
           "type": "stat",
-          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "gridPos": { "x": 0, "y": 4, "w": 8, "h": 4 },
           "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "ms",
-              "thresholds": {
-                "steps": [
-                  { "color": "green", "value": 0 },
-                  { "color": "yellow", "value": 500 },
-                  { "color": "red", "value": 1000 }
-                ]
-              }
-            }
-          },
-          "targets": [
-            {
-              "expr": "1000 * histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[5m])) by (le))",
-              "legendFormat": "p99"
-            }
-          ]
+          "fieldConfig": { "defaults": { "unit": "ms", "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 500 }, { "color": "red", "value": 1000 }] } } },
+          "targets": [{ "expr": "1000 * histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p99" }]
         },
         {
-          "id": 2,
-          "title": "Storefront → Backend",
+          "id": 18,
+          "title": "Availability SLO (5m)",
           "type": "stat",
-          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
-          "options": {
-            "reduceOptions": { "calcs": ["lastNotNull"] },
-            "mappings": [
-              { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
-            ]
-          },
-          "targets": [
-            {
-              "expr": "pisofire_storefront_backend_up",
-              "legendFormat": "backend"
-            }
-          ]
+          "gridPos": { "x": 8, "y": 4, "w": 8, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 95 }, { "color": "green", "value": 99.5 }] } } },
+          "targets": [{ "expr": "avg(avg_over_time(probe_success{tenant=\"pisofire\"}[5m])) * 100", "legendFormat": "availability" }]
         },
         {
           "id": 3,
-          "title": "Request Rate per Endpoint (req/s)",
+          "title": "Request Rate — Store API (req/s)",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
-          "targets": [
-            {
-              "expr": "sum(rate(pisofire_medusa_http_requests_total[1m])) by (route)",
-              "legendFormat": "{{route}}"
-            }
-          ]
+          "targets": [{ "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/.*\"}[2m])) by (route)", "legendFormat": "{{route}}" }]
         },
         {
           "id": 4,
-          "title": "Error Rate per Endpoint (%)",
+          "title": "Error Rate — Store API (%)",
           "type": "timeseries",
           "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{status_code=~\"5..\"}[1m])) by (route) / sum(rate(pisofire_medusa_http_requests_total[1m])) by (route)",
+              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/.*\", status_code=~\"5..\"}[2m])) by (route) / sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/.*\"}[2m])) by (route) or sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/.*\"}[2m])) by (route) * 0",
               "legendFormat": "{{route}}"
             }
           ]
         },
         {
           "id": 5,
-          "title": "Latency p50 / p95 / p99 (s) — all routes",
+          "title": "Latency p50 / p95 / p99 (s)",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 },
           "targets": [
-            {
-              "expr": "histogram_quantile(0.50, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le))",
-              "legendFormat": "p50"
-            },
-            {
-              "expr": "histogram_quantile(0.95, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le))",
-              "legendFormat": "p95"
-            },
-            {
-              "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le))",
-              "legendFormat": "p99"
-            }
+            { "expr": "histogram_quantile(0.50, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le))", "legendFormat": "p50" },
+            { "expr": "histogram_quantile(0.95, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le))", "legendFormat": "p95" },
+            { "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le))", "legendFormat": "p99" }
           ]
         },
         {
@@ -299,22 +271,10 @@ data:
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
           "targets": [
-            {
-              "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/products.*\"}[1m]))",
-              "legendFormat": "product page"
-            },
-            {
-              "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\"}[1m]))",
-              "legendFormat": "cart"
-            },
-            {
-              "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\"}[1m]))",
-              "legendFormat": "payment"
-            },
-            {
-              "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/orders.*\"}[1m]))",
-              "legendFormat": "orders"
-            }
+            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/products.*\"}[1m]))", "legendFormat": "product page" },
+            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\"}[1m]))", "legendFormat": "cart" },
+            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\"}[1m]))", "legendFormat": "payment" },
+            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/orders.*\"}[1m]))", "legendFormat": "orders" }
           ]
         },
         {
@@ -324,14 +284,8 @@ data:
           "type": "timeseries",
           "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
           "targets": [
-            {
-              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\", status_code=~\"5..\"}[1m])) / sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\"}[1m]))",
-              "legendFormat": "cart errors %"
-            },
-            {
-              "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\", status_code=~\"5..\"}[1m])) / sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\"}[1m]))",
-              "legendFormat": "payment errors %"
-            }
+            { "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\", status_code=~\"5..\"}[1m])) / sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\"}[1m])) or sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\"}[1m])) * 0", "legendFormat": "cart errors %" },
+            { "expr": "100 * sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\", status_code=~\"5..\"}[1m])) / sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\"}[1m])) or sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\"}[1m])) * 0", "legendFormat": "payment errors %" }
           ]
         },
         {
@@ -340,74 +294,38 @@ data:
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 },
           "targets": [
-            {
-              "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket{route=~\"/store/products.*\"}[2m])) by (le))",
-              "legendFormat": "product p99"
-            },
-            {
-              "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket{route=~\"/store/carts.*\"}[2m])) by (le))",
-              "legendFormat": "cart p99"
-            },
-            {
-              "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket{route=~\"/store/payment.*\"}[2m])) by (le))",
-              "legendFormat": "payment p99"
-            }
+            { "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket{route=~\"/store/products.*\"}[2m])) by (le))", "legendFormat": "product p99" },
+            { "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket{route=~\"/store/carts.*\"}[2m])) by (le))", "legendFormat": "cart p99" },
+            { "expr": "histogram_quantile(0.99, sum(rate(pisofire_medusa_http_request_duration_seconds_bucket{route=~\"/store/payment.*\"}[2m])) by (le))", "legendFormat": "payment p99" }
           ]
         },
         {
           "id": 9,
           "title": "Store Entity Counts",
-          "description": "Products, orders, regions, users in the store",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 40, "w": 12, "h": 8 },
-          "targets": [
-            {
-              "expr": "pisofire_medusa_store_entity_count",
-              "legendFormat": "{{entity}}"
-            }
-          ]
+          "targets": [{ "expr": "pisofire_medusa_store_entity_count", "legendFormat": "{{entity}}" }]
         },
         {
           "id": 10,
-          "title": "Dependency Health",
-          "description": "1 = up, 0 = down (database and redis from Medusa's perspective)",
+          "title": "Dependency Health (database & redis)",
           "type": "timeseries",
           "gridPos": { "x": 12, "y": 40, "w": 12, "h": 8 },
-          "targets": [
-            {
-              "expr": "pisofire_medusa_dependency_up",
-              "legendFormat": "{{dependency}}"
-            }
-          ]
+          "targets": [{ "expr": "pisofire_medusa_dependency_up", "legendFormat": "{{dependency}}" }]
         },
         {
-          "id": 11,
-          "title": "Storefront Backend Readiness Latency (s)",
+          "id": 20,
+          "title": "Probe Latency per Endpoint (s)",
           "type": "timeseries",
-          "gridPos": { "x": 0, "y": 48, "w": 12, "h": 8 },
-          "targets": [
-            {
-              "expr": "histogram_quantile(0.95, sum(rate(pisofire_storefront_backend_ready_latency_seconds_bucket[2m])) by (le))",
-              "legendFormat": "p95"
-            }
-          ]
+          "gridPos": { "x": 0, "y": 48, "w": 24, "h": 8 },
+          "targets": [{ "expr": "probe_duration_seconds{tenant=\"pisofire\"}", "legendFormat": "{{instance}}" }]
         },
         {
-          "id": 12,
-          "title": "HTTP Response Time Distribution (heatmap)",
-          "type": "heatmap",
-          "gridPos": { "x": 12, "y": 48, "w": 12, "h": 8 },
-          "options": {
-            "calculate": false,
-            "yAxis": { "unit": "s" }
-          },
-          "targets": [
-            {
-              "expr": "sum(increase(pisofire_medusa_http_request_duration_seconds_bucket[2m])) by (le)",
-              "legendFormat": "{{le}}",
-              "format": "heatmap"
-            }
-          ]
+          "id": 21,
+          "title": "Endpoint Availability Over Time",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 56, "w": 24, "h": 8 },
+          "targets": [{ "expr": "probe_success{tenant=\"pisofire\"}", "legendFormat": "{{instance}}" }]
         }
       ],
       "schemaVersion": 36
