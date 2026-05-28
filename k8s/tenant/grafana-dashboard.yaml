@@ -228,7 +228,7 @@ data:
           "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
           "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] } },
-          "targets": [{ "expr": "probe_success{instance=\"http://storefront.tenant-pisofire.svc.cluster.local:8000/api/health\"}", "legendFormat": "" }]
+          "targets": [{ "expr": "probe_success{instance=\"http://storefront.tenant-pisofire.svc.cluster.local:8000/api/health\"}", "legendFormat": "storefront" }]
         },
         {
           "id": 15,
@@ -237,7 +237,7 @@ data:
           "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
           "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] } },
-          "targets": [{ "expr": "probe_success{instance=\"http://medusa.tenant-pisofire.svc.cluster.local:9000/health\"}", "legendFormat": "" }]
+          "targets": [{ "expr": "probe_success{instance=\"http://medusa.tenant-pisofire.svc.cluster.local:9000/health\"}", "legendFormat": "medusa" }]
         },
         {
           "id": 22,
