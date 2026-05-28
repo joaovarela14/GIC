@@ -41,13 +41,19 @@ spec:
               cpu: 500m
               memory: 512Mi
           readinessProbe:
-            tcpSocket:
-              port: 6379
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -h 127.0.0.1 ping | grep PONG
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            tcpSocket:
-              port: 6379
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -h 127.0.0.1 ping | grep PONG
             initialDelaySeconds: 15
             periodSeconds: 20
       volumes:
