@@ -15,6 +15,10 @@ It uses plain manifests with `kustomization.yaml` so the deployment stays easy t
 The local baseline targets `k3d`. The department cluster overlay lives in
 `k8s/tenant` and targets the pre-created `tenant-pisofire` namespace.
 
+For a short delivery summary of the health checks, metrics, autoscaling,
+backup/restore and current operational limits, read
+[`docs/operations/README.md`](../docs/operations/README.md).
+
 ## Safety
 
 Do not run any `kubectl apply` command until you are sure you are pointing at the intended local test cluster.
