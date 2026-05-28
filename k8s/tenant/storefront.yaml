@@ -32,7 +32,7 @@ spec:
       containers:
         - name: storefront
           image: my-medusa-store-storefront:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
               name: http
