@@ -1,0 +1,20 @@
+Starting HPA scale demonstration
+Namespace: tenant-pisofire
+Target deployment: storefront
+HPA: storefront
+Initial replicas: 2
+Temporarily lowering HPA targets to 1% for a deterministic demo.
+Starting in-cluster HTTP load: workers=2 duration=120s
+HPA storefront: desired=2 ready=2 cpu=3% memory=28%
+HPA storefront: desired=2 ready=2 cpu=2% memory=29%
+HPA storefront: desired=5 ready=2 cpu=43% memory=32%
+HPA scale test passed
+Namespace: tenant-pisofire
+Target deployment: storefront
+HPA: storefront
+Initial replicas: 2
+Scale-up observed: yes
+Pinning HPA to 2 replicas for cleanup
+Restoring deployment/storefront replica count to 2
+HPA cooldown: cpu=unknown%/70% memory=unknown%/80%
+Restoring HPA targets for storefront
