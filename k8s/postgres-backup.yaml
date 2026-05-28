@@ -4,7 +4,7 @@ metadata:
   name: postgres-backup
   namespace: pisofire
 spec:
-  schedule: "45 2 * * *"
+  schedule: "47 2 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
