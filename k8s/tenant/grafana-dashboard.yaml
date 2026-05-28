@@ -243,7 +243,7 @@ data:
           "id": 22,
           "title": "PostgreSQL",
           "type": "stat",
-          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+          "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
           "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] } },
           "targets": [{ "expr": "pg_up{namespace=\"tenant-pisofire\"}", "legendFormat": "" }]
@@ -252,10 +252,19 @@ data:
           "id": 23,
           "title": "Redis",
           "type": "stat",
-          "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+          "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
           "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
           "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] } },
           "targets": [{ "expr": "redis_up{namespace=\"tenant-pisofire\"}", "legendFormat": "" }]
+        },
+        {
+          "id": 25,
+          "title": "Alertmanager",
+          "type": "stat",
+          "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] } },
+          "targets": [{ "expr": "up{job=\"prometheus-kube-prometheus-alertmanager\"}", "legendFormat": "" }]
         },
         {
           "id": 13,
