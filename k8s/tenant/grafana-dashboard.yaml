@@ -286,10 +286,10 @@ data:
         },
         {
           "id": 3,
-          "title": "Request Rate — Store API (req/s)",
+          "title": "Request Rate — Store API (req/min)",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
-          "targets": [{ "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/.*\"}[2m])) by (route)", "legendFormat": "{{route}}" }]
+          "targets": [{ "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/.*\"}[2m])) by (route) * 60", "legendFormat": "{{route}}" }]
         },
         {
           "id": 4,
@@ -316,15 +316,15 @@ data:
         },
         {
           "id": 6,
-          "title": "Checkout Path — Request Rate (req/s)",
+          "title": "Checkout Path — Request Rate (req/min)",
           "description": "Critical user journey: product page → cart → payment",
           "type": "timeseries",
           "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
           "targets": [
-            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/products.*\"}[1m]))", "legendFormat": "product page" },
-            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\"}[1m]))", "legendFormat": "cart" },
-            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\"}[1m]))", "legendFormat": "payment" },
-            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/orders.*\"}[1m]))", "legendFormat": "orders" }
+            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/products.*\"}[1m])) * 60", "legendFormat": "product page" },
+            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/carts.*\"}[1m])) * 60", "legendFormat": "cart" },
+            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/payment.*\"}[1m])) * 60", "legendFormat": "payment" },
+            { "expr": "sum(rate(pisofire_medusa_http_requests_total{route=~\"/store/orders.*\"}[1m])) * 60", "legendFormat": "orders" }
           ]
         },
         {
