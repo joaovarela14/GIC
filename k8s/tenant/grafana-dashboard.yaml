@@ -16,10 +16,55 @@ data:
       "time": { "from": "now-1h", "to": "now" },
       "panels": [
         {
+          "id": 20,
+          "title": "Pods Running",
+          "type": "stat",
+          "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 3 }, { "color": "green", "value": 5 }] } } },
+          "targets": [{ "expr": "count(kube_pod_status_phase{namespace=\"tenant-pisofire\", phase=\"Running\"} == 1)", "legendFormat": "" }]
+        },
+        {
+          "id": 21,
+          "title": "Pod Restarts (1h)",
+          "type": "stat",
+          "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 3 }, { "color": "red", "value": 10 }] } } },
+          "targets": [{ "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"tenant-pisofire\"}[1h]))", "legendFormat": "" }]
+        },
+        {
+          "id": 22,
+          "title": "Medusa Replicas",
+          "type": "stat",
+          "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 1 }, { "color": "green", "value": 2 }] } } },
+          "targets": [{ "expr": "kube_deployment_status_replicas_ready{namespace=\"tenant-pisofire\", deployment=\"medusa\"}", "legendFormat": "" }]
+        },
+        {
+          "id": 23,
+          "title": "Storefront Replicas",
+          "type": "stat",
+          "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 1 }, { "color": "green", "value": 2 }] } } },
+          "targets": [{ "expr": "kube_deployment_status_replicas_ready{namespace=\"tenant-pisofire\", deployment=\"storefront\"}", "legendFormat": "" }]
+        },
+        {
+          "id": 24,
+          "title": "Last Backup",
+          "type": "stat",
+          "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 90000 }, { "color": "red", "value": 172800 }] } } },
+          "targets": [{ "expr": "time() - kube_cronjob_status_last_successful_time{namespace=\"tenant-pisofire\", cronjob=\"postgres-backup\"}", "legendFormat": "" }]
+        },
+        {
           "id": 1,
           "title": "Ready Pods per Workload",
           "type": "timeseries",
-          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
           "targets": [
             {
               "expr": "kube_deployment_status_replicas_ready{namespace=\"tenant-pisofire\"}",
@@ -29,13 +74,13 @@ data:
         },
         {
           "id": 2,
-          "title": "Pod Restarts",
+          "title": "Pod Restarts Over Time",
           "type": "timeseries",
-          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"tenant-pisofire\"}[1h])",
-              "legendFormat": "{{pod}} / {{container}}"
+              "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"tenant-pisofire\", container!=\"\"}[5m])",
+              "legendFormat": "{{container}}"
             }
           ]
         },
@@ -43,7 +88,7 @@ data:
           "id": 3,
           "title": "CPU Usage per Pod (cores)",
           "type": "timeseries",
-          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
           "targets": [
             {
               "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"tenant-pisofire\", container!=\"\"}[2m])) by (pod)",
@@ -55,7 +100,7 @@ data:
           "id": 4,
           "title": "Memory Usage per Pod (bytes)",
           "type": "timeseries",
-          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
           "targets": [
             {
               "expr": "sum(container_memory_working_set_bytes{namespace=\"tenant-pisofire\", container!=\"\"}) by (pod)",
@@ -98,8 +143,8 @@ data:
           "gridPos": { "x": 0, "y": 24, "w": 8, "h": 8 },
           "targets": [
             {
-              "expr": "pg_stat_database_numbackends{namespace=\"tenant-pisofire\"}",
-              "legendFormat": "{{datname}}"
+              "expr": "pg_stat_database_numbackends{namespace=\"tenant-pisofire\", datname=\"medusa-store\"}",
+              "legendFormat": "connections"
             }
           ]
         },
@@ -110,8 +155,8 @@ data:
           "gridPos": { "x": 8, "y": 24, "w": 8, "h": 8 },
           "targets": [
             {
-              "expr": "pg_database_size_bytes{namespace=\"tenant-pisofire\"}",
-              "legendFormat": "{{datname}}"
+              "expr": "pg_database_size_bytes{namespace=\"tenant-pisofire\", datname=\"medusa-store\"}",
+              "legendFormat": "medusa-store"
             }
           ]
         },
@@ -124,10 +169,6 @@ data:
             {
               "expr": "redis_memory_used_bytes{namespace=\"tenant-pisofire\"}",
               "legendFormat": "used"
-            },
-            {
-              "expr": "redis_memory_max_bytes{namespace=\"tenant-pisofire\"}",
-              "legendFormat": "max"
             }
           ]
         },
@@ -138,11 +179,11 @@ data:
           "gridPos": { "x": 0, "y": 32, "w": 12, "h": 8 },
           "targets": [
             {
-              "expr": "pisofire_medusa_nodejs_heap_size_used_bytes",
+              "expr": "sum(pisofire_medusa_nodejs_heap_size_used_bytes)",
               "legendFormat": "heap used"
             },
             {
-              "expr": "pisofire_medusa_nodejs_heap_size_total_bytes",
+              "expr": "sum(pisofire_medusa_nodejs_heap_size_total_bytes)",
               "legendFormat": "heap total"
             }
           ]
@@ -185,8 +226,8 @@ data:
           "title": "Storefront",
           "type": "stat",
           "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
-          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none",
-            "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] } },
           "targets": [{ "expr": "probe_success{instance=\"http://storefront.tenant-pisofire.svc.cluster.local:8000/api/health\"}", "legendFormat": "" }]
         },
         {
@@ -194,8 +235,8 @@ data:
           "title": "Medusa",
           "type": "stat",
           "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
-          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none",
-            "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] } },
           "targets": [{ "expr": "probe_success{instance=\"http://medusa.tenant-pisofire.svc.cluster.local:9000/health\"}", "legendFormat": "" }]
         },
         {
@@ -203,8 +244,8 @@ data:
           "title": "PostgreSQL",
           "type": "stat",
           "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
-          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none",
-            "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] } },
           "targets": [{ "expr": "pg_up{namespace=\"tenant-pisofire\"}", "legendFormat": "" }]
         },
         {
@@ -212,8 +253,8 @@ data:
           "title": "Redis",
           "type": "stat",
           "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
-          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none",
-            "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+          "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }] } },
           "targets": [{ "expr": "redis_up{namespace=\"tenant-pisofire\"}", "legendFormat": "" }]
         },
         {
@@ -300,32 +341,11 @@ data:
           ]
         },
         {
-          "id": 9,
-          "title": "Store Entity Counts",
-          "type": "timeseries",
-          "gridPos": { "x": 0, "y": 40, "w": 12, "h": 8 },
-          "targets": [{ "expr": "pisofire_medusa_store_entity_count", "legendFormat": "{{entity}}" }]
-        },
-        {
           "id": 10,
           "title": "Dependency Health (database & redis)",
           "type": "timeseries",
-          "gridPos": { "x": 12, "y": 40, "w": 12, "h": 8 },
+          "gridPos": { "x": 0, "y": 40, "w": 24, "h": 8 },
           "targets": [{ "expr": "pisofire_medusa_dependency_up", "legendFormat": "{{dependency}}" }]
-        },
-        {
-          "id": 20,
-          "title": "Probe Latency per Endpoint (s)",
-          "type": "timeseries",
-          "gridPos": { "x": 0, "y": 48, "w": 24, "h": 8 },
-          "targets": [{ "expr": "probe_duration_seconds{tenant=\"pisofire\"}", "legendFormat": "{{instance}}" }]
-        },
-        {
-          "id": 21,
-          "title": "Endpoint Availability Over Time",
-          "type": "timeseries",
-          "gridPos": { "x": 0, "y": 56, "w": 24, "h": 8 },
-          "targets": [{ "expr": "probe_success{tenant=\"pisofire\"}", "legendFormat": "{{instance}}" }]
         }
       ],
       "schemaVersion": 36
