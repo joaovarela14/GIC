@@ -1,41 +1,19 @@
 import { Metadata } from "next"
 
-import FeaturedProducts from "@modules/home/components/featured-products"
-import Hero from "@modules/home/components/hero"
-import { listCollections } from "@lib/data/collections"
-import { getRegion } from "@lib/data/regions"
+import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
+import StoreTemplate from "@modules/store/templates"
 
 export const metadata: Metadata = {
-  title: "Medusa Next.js Starter Template",
-  description:
-    "A performant frontend ecommerce starter template with Next.js 15 and Medusa.",
+  title: "PisoFire",
+  description: "Explore all of our products.",
 }
 
 export default async function Home(props: {
   params: Promise<{ countryCode: string }>
+  searchParams: Promise<{ sortBy?: SortOptions; page?: string }>
 }) {
-  const params = await props.params
+  const { countryCode } = await props.params
+  const { sortBy, page } = await props.searchParams
 
-  const { countryCode } = params
-
-  const region = await getRegion(countryCode)
-
-  const { collections } = await listCollections({
-    fields: "id, handle, title",
-  })
-
-  if (!collections || !region) {
-    return null
-  }
-
-  return (
-    <>
-      <Hero />
-      <div className="py-12">
-        <ul className="flex flex-col gap-x-6">
-          <FeaturedProducts collections={collections} region={region} />
-        </ul>
-      </div>
-    </>
-  )
+  return <StoreTemplate sortBy={sortBy} page={page} countryCode={countryCode} />
 }
