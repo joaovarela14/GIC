@@ -1,7 +1,8 @@
 # Known Limits
 
 - PostgreSQL runs as a primary/standby StatefulSet, but failover is manual.
-- Redis is a single-instance service.
+- Tenant Redis uses Sentinel for local automatic failover; the local/base Redis
+  manifest is still single-instance.
 - There is backup and restore, but no automatic database failover.
 - Health checks are dependency-aware, but not version or schema-aware yet.
 - Rollouts are safe RollingUpdates with rollback, but not canary rollouts.

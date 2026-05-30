@@ -1,8 +1,10 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
+import { buildRedisConnectionOptions } from "./src/lib/redis-options"
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 const sharedRedisUrl = process.env.REDIS_URL
+const redisConnectionOptions = buildRedisConnectionOptions()
 const cookieSecure =
   process.env.COOKIE_SECURE !== undefined
     ? process.env.COOKIE_SECURE === "true"
@@ -14,6 +16,7 @@ module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: sharedRedisUrl,
+    redisOptions: redisConnectionOptions,
     workerMode:
       (process.env.MEDUSA_WORKER_MODE as "shared" | "server" | "worker") ||
       "shared",
@@ -44,6 +47,7 @@ module.exports = defineConfig({
             is_default: true,
             options: {
               redisUrl: process.env.CACHE_REDIS_URL || sharedRedisUrl,
+              ...redisConnectionOptions,
             },
           },
         ],
@@ -53,6 +57,7 @@ module.exports = defineConfig({
       resolve: "@medusajs/medusa/event-bus-redis",
       options: {
         redisUrl: process.env.EVENTS_REDIS_URL || sharedRedisUrl,
+        redisOptions: redisConnectionOptions,
       },
     },
     {
@@ -60,6 +65,7 @@ module.exports = defineConfig({
       options: {
         redis: {
           redisUrl: process.env.WE_REDIS_URL || sharedRedisUrl,
+          redisOptions: redisConnectionOptions,
         },
       },
     },
@@ -73,6 +79,7 @@ module.exports = defineConfig({
             is_default: true,
             options: {
               redisUrl: process.env.LOCKING_REDIS_URL || sharedRedisUrl,
+              redisOptions: redisConnectionOptions,
             },
           },
         ],

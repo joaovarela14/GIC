@@ -83,21 +83,33 @@ The tenant overlay includes the M2 monitoring and autoscaling resources:
 - PodDisruptionBudgets are omitted from the tenant overlay because the tenant
   service account cannot create `poddisruptionbudgets.policy`.
 - A `postgres-backup` CronJob and `postgres-backups` PVC for database recovery.
-- A `redis-data` PVC with Redis AOF enabled for Redis recovery after pod recreation.
+- A three-pod Redis StatefulSet with Redis Sentinel, one PVC per pod, and AOF
+  enabled for pod recreation and failover recovery.
 
 The backend and storefront start with two replicas and can scale to five when CPU or
 memory utilization crosses the configured HPA targets. The worker starts with one
 replica and can scale to three.
 
 Postgres runs as a two-pod StatefulSet with `postgres-0` as the writable primary
-and `postgres-1` as a standby replica. Redis is still single-instance. Full
-automatic stateful HA still requires managed services or operators that provide
-leader election, failover and client routing.
+and `postgres-1` as a standby replica. Redis runs as one master and two replicas
+with Sentinel quorum `2`; Medusa connects through Sentinel so Redis writes follow
+the promoted master after failover. PostgreSQL promotion remains manual.
 
-Migrating from the older single-pod Postgres Deployment creates new StatefulSet
-PVCs. The old `postgres-data` PVC is not copied automatically, so take a backup
-before deploying and restore it into the new primary if tenant data must be
-preserved.
+Migrating from the older single-pod Postgres and Redis Deployments creates new
+StatefulSet PVCs. The old `postgres-data` and `redis-data` PVCs are not copied
+automatically, so take backups before deploying and restore data into the new
+primaries if tenant data must be preserved.
+
+Useful Redis Sentinel checks after deployment:
+
+```bash
+kubectl exec -n tenant-pisofire redis-0 -c sentinel -- \
+  redis-cli -p 26379 SENTINEL get-master-addr-by-name pisofire-redis
+
+kubectl exec -n tenant-pisofire redis-0 -c redis -- redis-cli role
+kubectl exec -n tenant-pisofire redis-1 -c redis -- redis-cli role
+kubectl exec -n tenant-pisofire redis-2 -c redis -- redis-cli role
+```
 
 Run the HPA scale-up demonstration against the tenant cluster:
 
