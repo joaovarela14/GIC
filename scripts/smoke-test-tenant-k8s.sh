@@ -36,7 +36,8 @@ fi
 
 echo "Waiting for core workloads in namespace $NAMESPACE"
 kubectl --kubeconfig "$KUBECONFIG_FILE" rollout status -n "$NAMESPACE" --timeout=240s statefulset/postgres >/dev/null
-kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=available --timeout=240s deployment/redis deployment/medusa deployment/medusa-worker deployment/storefront >/dev/null
+kubectl --kubeconfig "$KUBECONFIG_FILE" rollout status -n "$NAMESPACE" --timeout=240s statefulset/redis >/dev/null
+kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=available --timeout=240s deployment/medusa deployment/medusa-worker deployment/storefront >/dev/null
 
 echo "Checking PostgreSQL primary and standby roles"
 POSTGRES_PRIMARY_RECOVERY="$(
@@ -68,7 +69,46 @@ if ! kubectl --kubeconfig "$KUBECONFIG_FILE" get pdb -n "$NAMESPACE" medusa stor
 fi
 kubectl --kubeconfig "$KUBECONFIG_FILE" get cronjob -n "$NAMESPACE" postgres-backup >/dev/null
 kubectl --kubeconfig "$KUBECONFIG_FILE" get pvc -n "$NAMESPACE" postgres-backups >/dev/null
-kubectl --kubeconfig "$KUBECONFIG_FILE" get pvc -n "$NAMESPACE" redis-data >/dev/null
+for ordinal in 0 1 2; do
+  kubectl --kubeconfig "$KUBECONFIG_FILE" get pvc -n "$NAMESPACE" "redis-data-redis-$ordinal" >/dev/null
+done
+
+echo "Checking Redis Sentinel and replication roles"
+REDIS_SENTINEL_MASTER="$(
+  kubectl --kubeconfig "$KUBECONFIG_FILE" exec -n "$NAMESPACE" redis-0 -c sentinel -- \
+    redis-cli -p 26379 SENTINEL get-master-addr-by-name pisofire-redis \
+    2>/dev/null | sed -n '1p' | tr -d '\r'
+)"
+
+if [ -z "$REDIS_SENTINEL_MASTER" ]; then
+  echo "Redis Sentinel did not return a master for pisofire-redis." >&2
+  exit 1
+fi
+
+REDIS_MASTER_COUNT=0
+for ordinal in 0 1 2; do
+  REDIS_ROLE="$(
+    kubectl --kubeconfig "$KUBECONFIG_FILE" exec -n "$NAMESPACE" "redis-$ordinal" -c redis -- \
+      sh -ec 'redis-cli role | sed -n "1p"' 2>/dev/null | tr -d '\r'
+  )"
+
+  case "$REDIS_ROLE" in
+    master)
+      REDIS_MASTER_COUNT=$((REDIS_MASTER_COUNT + 1))
+      ;;
+    slave|replica)
+      ;;
+    *)
+      echo "Unexpected Redis role for redis-$ordinal: ${REDIS_ROLE:-<empty>}" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [ "$REDIS_MASTER_COUNT" -ne 1 ]; then
+  echo "Expected exactly one Redis master, found $REDIS_MASTER_COUNT." >&2
+  exit 1
+fi
 
 if ! kubectl --kubeconfig "$KUBECONFIG_FILE" get --raw /apis/metrics.k8s.io/v1beta1/nodes >/dev/null 2>&1; then
   echo "Kubernetes metrics API is unavailable; HPA cannot scale on CPU/memory." >&2
@@ -249,6 +289,7 @@ printf '%s\n' "Tenant smoke test passed" \
   "PostgreSQL backup controls: present" \
   "PostgreSQL replication: primary postgres-0, standby postgres-1" \
   "Stateful disruption controls: present" \
-  "Redis persistence: present" \
+  "Redis Sentinel master: $REDIS_SENTINEL_MASTER" \
+  "Redis Sentinel HA: one master, two replicas" \
   "Admin authentication: passed" \
   "Order: $ORDER_ID"

@@ -31,18 +31,22 @@ Current limits:
 
 ## Redis
 
-Redis is still a single instance. It is not highly available.
+Tenant Redis runs as a three-pod StatefulSet with Redis Sentinel. Sentinel keeps
+one writable master and promotes a replica when the current master is unavailable.
+Medusa uses ioredis Sentinel discovery, so Redis clients reconnect to the promoted
+master instead of writing through a fixed Kubernetes Service.
 
 Hardening added:
 
-- Redis uses a `redis-data` PVC.
-- Redis AOF is enabled with `appendonly yes`.
-- Local Redis probes use `redis-cli ping`.
-- A PodDisruptionBudget with `maxUnavailable: 0` blocks voluntary evictions.
+- Redis uses one `redis-data-redis-N` PVC per StatefulSet pod.
+- Redis AOF is enabled with `appendonly yes` and `appendfsync everysec`.
+- Each Redis pod also runs a Sentinel container on port `26379`.
+- Sentinel quorum is `2` for the `pisofire-redis` master name.
+- Redis and Sentinel probes use `redis-cli ping`.
 
 Current limits:
 
-- Redis does not yet use Sentinel or Redis Cluster.
-- Tenant Redis still has a TCP probe and should be aligned with the local
-  `redis-cli ping` probe.
+- The legacy single-pod local/base manifest still uses one Redis instance.
+- Existing data in the old `redis-data` PVC is not migrated automatically to the
+  new StatefulSet PVCs.
 - Redis health does not yet validate pub/sub subscribers or expected channels.

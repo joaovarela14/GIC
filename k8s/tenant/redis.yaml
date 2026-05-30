@@ -1,12 +1,183 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-ha-scripts
+  namespace: pisofire
+data:
+  redis-start.sh: |
+    #!/bin/sh
+    set -eu
+
+    MASTER_NAME="${REDIS_MASTER_NAME:-pisofire-redis}"
+    HEADLESS_SERVICE="${REDIS_HEADLESS_SERVICE:-redis-headless}"
+    REPLICAS="${REDIS_REPLICAS:-3}"
+    DATA_DIR="${REDIS_DATA_DIR:-/data}"
+    REDIS_CONF="$DATA_DIR/redis.conf"
+    SENTINEL_CONF="$DATA_DIR/sentinel.conf"
+    SELF_HOST="$POD_NAME.$HEADLESS_SERVICE.$POD_NAMESPACE.svc.cluster.local"
+
+    sentinel_host() {
+      printf 'redis-%s.%s' "$1" "$HEADLESS_SERVICE"
+    }
+
+    discover_master_from_sentinel() {
+      index=0
+      while [ "$index" -lt "$REPLICAS" ]; do
+        host="$(sentinel_host "$index")"
+        master="$(redis-cli -h "$host" -p 26379 --connect-timeout 1 SENTINEL get-master-addr-by-name "$MASTER_NAME" 2>/dev/null | sed -n '1p' | tr -d '\r' || true)"
+        if [ -n "$master" ]; then
+          printf '%s\n' "$master"
+          return 0
+        fi
+        index=$((index + 1))
+      done
+
+      return 1
+    }
+
+    discover_master_from_config() {
+      if [ -f "$SENTINEL_CONF" ]; then
+        awk -v name="$MASTER_NAME" '$1 == "sentinel" && $2 == "monitor" && $3 == name { print $4; exit }' "$SENTINEL_CONF"
+      fi
+    }
+
+    is_self_master() {
+      case "$1" in
+        "$POD_NAME"|"$SELF_HOST"|"$SELF_HOST.$POD_NAMESPACE"|"$SELF_HOST.$POD_NAMESPACE.svc"|"$SELF_HOST.$POD_NAMESPACE.svc.cluster.local"|"$POD_IP")
+          return 0
+          ;;
+      esac
+
+      return 1
+    }
+
+    mkdir -p "$DATA_DIR"
+
+    master_host="$(discover_master_from_sentinel || true)"
+    if [ -z "$master_host" ]; then
+      master_host="$(discover_master_from_config || true)"
+    fi
+    if [ -z "$master_host" ]; then
+      master_host="redis-0.$HEADLESS_SERVICE"
+    fi
+
+    cat > "$REDIS_CONF" <<EOF
+    port 6379
+    bind 0.0.0.0
+    protected-mode no
+    appendonly yes
+    appendfsync everysec
+    dir $DATA_DIR
+    replica-announce-ip $SELF_HOST
+    replica-announce-port 6379
+    EOF
+
+    if ! is_self_master "$master_host"; then
+      printf 'replicaof %s 6379\n' "$master_host" >> "$REDIS_CONF"
+    fi
+
+    exec redis-server "$REDIS_CONF"
+  sentinel-start.sh: |
+    #!/bin/sh
+    set -eu
+
+    MASTER_NAME="${REDIS_MASTER_NAME:-pisofire-redis}"
+    HEADLESS_SERVICE="${REDIS_HEADLESS_SERVICE:-redis-headless}"
+    REPLICAS="${REDIS_REPLICAS:-3}"
+    DATA_DIR="${REDIS_DATA_DIR:-/data}"
+    SENTINEL_CONF="$DATA_DIR/sentinel.conf"
+    SELF_HOST="$POD_NAME.$HEADLESS_SERVICE.$POD_NAMESPACE.svc.cluster.local"
+
+    sentinel_host() {
+      printf 'redis-%s.%s' "$1" "$HEADLESS_SERVICE"
+    }
+
+    discover_master_from_sentinel() {
+      index=0
+      while [ "$index" -lt "$REPLICAS" ]; do
+        host="$(sentinel_host "$index")"
+        master="$(redis-cli -h "$host" -p 26379 --connect-timeout 1 SENTINEL get-master-addr-by-name "$MASTER_NAME" 2>/dev/null | sed -n '1p' | tr -d '\r' || true)"
+        if [ -n "$master" ]; then
+          printf '%s\n' "$master"
+          return 0
+        fi
+        index=$((index + 1))
+      done
+
+      return 1
+    }
+
+    discover_master_from_config() {
+      if [ -f "$SENTINEL_CONF" ]; then
+        awk -v name="$MASTER_NAME" '$1 == "sentinel" && $2 == "monitor" && $3 == name { print $4; exit }' "$SENTINEL_CONF"
+      fi
+    }
+
+    set_or_add_line() {
+      pattern="$1"
+      line="$2"
+
+      if grep -q "$pattern" "$SENTINEL_CONF"; then
+        sed -i "s|$pattern.*|$line|" "$SENTINEL_CONF"
+      else
+        printf '%s\n' "$line" >> "$SENTINEL_CONF"
+      fi
+    }
+
+    mkdir -p "$DATA_DIR"
+
+    master_host="$(discover_master_from_sentinel || true)"
+    if [ -z "$master_host" ]; then
+      master_host="$(discover_master_from_config || true)"
+    fi
+    if [ -z "$master_host" ]; then
+      master_host="redis-0.$HEADLESS_SERVICE"
+    fi
+
+    if [ ! -f "$SENTINEL_CONF" ]; then
+      cat > "$SENTINEL_CONF" <<EOF
+    port 26379
+    bind 0.0.0.0
+    protected-mode no
+    dir $DATA_DIR
+    sentinel resolve-hostnames yes
+    sentinel announce-hostnames yes
+    sentinel announce-ip $SELF_HOST
+    sentinel announce-port 26379
+    sentinel monitor $MASTER_NAME $master_host 6379 2
+    sentinel down-after-milliseconds $MASTER_NAME 5000
+    sentinel failover-timeout $MASTER_NAME 30000
+    sentinel parallel-syncs $MASTER_NAME 1
+    EOF
+    fi
+
+    set_or_add_line '^port ' 'port 26379'
+    set_or_add_line '^bind ' 'bind 0.0.0.0'
+    set_or_add_line '^protected-mode ' 'protected-mode no'
+    set_or_add_line '^dir ' "dir $DATA_DIR"
+    set_or_add_line '^sentinel resolve-hostnames ' 'sentinel resolve-hostnames yes'
+    set_or_add_line '^sentinel announce-hostnames ' 'sentinel announce-hostnames yes'
+    set_or_add_line '^sentinel announce-ip ' "sentinel announce-ip $SELF_HOST"
+    set_or_add_line '^sentinel announce-port ' 'sentinel announce-port 26379'
+    set_or_add_line "^sentinel down-after-milliseconds $MASTER_NAME " "sentinel down-after-milliseconds $MASTER_NAME 5000"
+    set_or_add_line "^sentinel failover-timeout $MASTER_NAME " "sentinel failover-timeout $MASTER_NAME 30000"
+    set_or_add_line "^sentinel parallel-syncs $MASTER_NAME " "sentinel parallel-syncs $MASTER_NAME 1"
+
+    if ! grep -q "^sentinel monitor $MASTER_NAME " "$SENTINEL_CONF"; then
+      printf 'sentinel monitor %s %s 6379 2\n' "$MASTER_NAME" "$master_host" >> "$SENTINEL_CONF"
+    fi
+
+    exec redis-server "$SENTINEL_CONF" --sentinel
+---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: redis
   namespace: pisofire
 spec:
-  replicas: 1
-  strategy:
-    type: Recreate
+  serviceName: redis-headless
+  replicas: 3
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: redis
@@ -15,24 +186,47 @@ spec:
       labels:
         app: redis
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: redis
       containers:
         - name: redis
           image: redis:7-alpine
           imagePullPolicy: IfNotPresent
+          command:
+            - /opt/redis-ha/redis-start.sh
           ports:
             - containerPort: 6379
               name: redis
-          command:
-            - redis-server
-            - --appendonly
-            - "yes"
-            - --appendfsync
-            - everysec
-            - --dir
-            - /data
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: REDIS_MASTER_NAME
+              value: pisofire-redis
+            - name: REDIS_HEADLESS_SERVICE
+              value: redis-headless
+            - name: REDIS_REPLICAS
+              value: "3"
           volumeMounts:
             - name: redis-data
               mountPath: /data
+            - name: redis-ha-scripts
+              mountPath: /opt/redis-ha
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -56,10 +250,108 @@ spec:
                 - redis-cli -h 127.0.0.1 ping | grep PONG
             initialDelaySeconds: 15
             periodSeconds: 20
+        - name: sentinel
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - /opt/redis-ha/sentinel-start.sh
+          ports:
+            - containerPort: 26379
+              name: sentinel
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: REDIS_MASTER_NAME
+              value: pisofire-redis
+            - name: REDIS_HEADLESS_SERVICE
+              value: redis-headless
+            - name: REDIS_REPLICAS
+              value: "3"
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+            - name: redis-ha-scripts
+              mountPath: /opt/redis-ha
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -h 127.0.0.1 -p 26379 ping | grep PONG
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -h 127.0.0.1 -p 26379 ping | grep PONG
+            initialDelaySeconds: 15
+            periodSeconds: 20
       volumes:
-        - name: redis-data
-          persistentVolumeClaim:
-            claimName: redis-data
+        - name: redis-ha-scripts
+          configMap:
+            name: redis-ha-scripts
+            defaultMode: 0555
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        storageClassName: longhorn
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 250Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-headless
+  namespace: pisofire
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+    - name: sentinel
+      port: 26379
+      targetPort: 26379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-sentinel
+  namespace: pisofire
+spec:
+  selector:
+    app: redis
+  ports:
+    - name: sentinel
+      port: 26379
+      targetPort: 26379
 ---
 apiVersion: v1
 kind: Service

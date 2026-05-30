@@ -9,6 +9,7 @@ NAMESPACE="${NAMESPACE:-tenant-pisofire}"
 IMAGE_PREFIX="${IMAGE_PREFIX:-registry.deti/tenant-pisofire}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 APP_DEPLOYMENTS="medusa medusa-worker storefront"
+STATEFUL_WORKLOADS="postgres redis"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
 
 require_command() {
@@ -33,6 +34,15 @@ wait_for_app_rollouts() {
   for deployment in $APP_DEPLOYMENTS; do
     if ! kubectl_tenant rollout status -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT" "deployment/$deployment"; then
       echo "Rollout failed for deployment/$deployment." >&2
+      return 1
+    fi
+  done
+}
+
+wait_for_stateful_rollouts() {
+  for statefulset in $STATEFUL_WORKLOADS; do
+    if ! kubectl_tenant rollout status -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT" "statefulset/$statefulset"; then
+      echo "Rollout failed for statefulset/$statefulset." >&2
       return 1
     fi
   done
@@ -109,20 +119,57 @@ if command -v kustomize >/dev/null 2>&1; then
       "my-medusa-store-storefront=$IMAGE_PREFIX/storefront:$IMAGE_TAG"
   )
 else
-  sed -i \
-    -e "s#registry.deti/tenant-pisofire/medusa#$IMAGE_PREFIX/medusa#g" \
-    -e "s#registry.deti/tenant-pisofire/storefront#$IMAGE_PREFIX/storefront#g" \
-    -e "s#newTag: latest#newTag: $IMAGE_TAG#g" \
-    "$OVERLAY_DIR/kustomization.yaml"
+  awk \
+    -v medusa_image="$IMAGE_PREFIX/medusa" \
+    -v storefront_image="$IMAGE_PREFIX/storefront" \
+    -v image_tag="$IMAGE_TAG" '
+      /^[[:space:]]*- name: my-medusa-store-medusa$/ {
+        target = "medusa"
+        print
+        next
+      }
+      /^[[:space:]]*- name: my-medusa-store-storefront$/ {
+        target = "storefront"
+        print
+        next
+      }
+      target == "medusa" && /^[[:space:]]*newName:/ {
+        sub(/newName:.*/, "newName: " medusa_image)
+        print
+        next
+      }
+      target == "storefront" && /^[[:space:]]*newName:/ {
+        sub(/newName:.*/, "newName: " storefront_image)
+        print
+        next
+      }
+      (target == "medusa" || target == "storefront") && /^[[:space:]]*newTag:/ {
+        sub(/newTag:.*/, "newTag: " image_tag)
+        print
+        target = ""
+        next
+      }
+      { print }
+    ' "$OVERLAY_DIR/kustomization.yaml" > "$OVERLAY_DIR/kustomization.yaml.tmp"
+  mv "$OVERLAY_DIR/kustomization.yaml.tmp" "$OVERLAY_DIR/kustomization.yaml"
 fi
 
 echo "Applying tenant overlay to namespace $NAMESPACE"
 kubectl_tenant delete job bootstrap-admin -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete job bootstrap-store -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete deployment postgres -n "$NAMESPACE" --ignore-not-found
+kubectl_tenant delete deployment redis -n "$NAMESPACE" --ignore-not-found
 if ! kubectl_tenant apply -k "$OVERLAY_DIR"; then
   echo "kubectl apply failed. Attempting application rollback." >&2
   rollback_app_deployments || true
+  show_recent_events
+  exit 1
+fi
+
+echo "Waiting for stateful rollouts"
+if ! wait_for_stateful_rollouts; then
+  echo "Stateful rollout failed after tenant deploy." >&2
+  kubectl_tenant get pods -n "$NAMESPACE" >&2 || true
   show_recent_events
   exit 1
 fi

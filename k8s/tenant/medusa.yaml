@@ -52,6 +52,16 @@ spec:
                 configMapKeyRef:
                   name: pisofire-config
                   key: REDIS_URL
+            - name: REDIS_SENTINEL_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: REDIS_SENTINEL_NAME
+            - name: REDIS_SENTINEL_HOSTS
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: REDIS_SENTINEL_HOSTS
             - name: STORE_CORS
               valueFrom:
                 configMapKeyRef:

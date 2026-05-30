@@ -48,11 +48,39 @@ cp "$SECRETS_FILE" "$OVERLAY_DIR/tenant-secrets.env"
       "my-medusa-store-medusa=$IMAGE_PREFIX/medusa:$IMAGE_TAG" \
       "my-medusa-store-storefront=$IMAGE_PREFIX/storefront:$IMAGE_TAG"
   else
-    sed -i \
-      -e "s#registry.deti/tenant-pisofire/medusa#$IMAGE_PREFIX/medusa#g" \
-      -e "s#registry.deti/tenant-pisofire/storefront#$IMAGE_PREFIX/storefront#g" \
-      -e "s#newTag: latest#newTag: $IMAGE_TAG#g" \
-      kustomization.yaml
+    awk \
+      -v medusa_image="$IMAGE_PREFIX/medusa" \
+      -v storefront_image="$IMAGE_PREFIX/storefront" \
+      -v image_tag="$IMAGE_TAG" '
+        /^[[:space:]]*- name: my-medusa-store-medusa$/ {
+          target = "medusa"
+          print
+          next
+        }
+        /^[[:space:]]*- name: my-medusa-store-storefront$/ {
+          target = "storefront"
+          print
+          next
+        }
+        target == "medusa" && /^[[:space:]]*newName:/ {
+          sub(/newName:.*/, "newName: " medusa_image)
+          print
+          next
+        }
+        target == "storefront" && /^[[:space:]]*newName:/ {
+          sub(/newName:.*/, "newName: " storefront_image)
+          print
+          next
+        }
+        (target == "medusa" || target == "storefront") && /^[[:space:]]*newTag:/ {
+          sub(/newTag:.*/, "newTag: " image_tag)
+          print
+          target = ""
+          next
+        }
+        { print }
+      ' kustomization.yaml > kustomization.yaml.tmp
+    mv kustomization.yaml.tmp kustomization.yaml
   fi
   kubectl kustomize .
 )

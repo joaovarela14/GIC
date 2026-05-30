@@ -4,7 +4,6 @@ namespace: tenant-pisofire
 resources:
   - configmap.yaml
   - postgres-backup-pvc.yaml
-  - redis-pvc.yaml
   - postgres.yaml
   - postgres-backup.yaml
   - redis.yaml
@@ -29,7 +28,7 @@ secretGenerator:
 images:
   - name: my-medusa-store-medusa
     newName: registry.deti/tenant-pisofire/medusa
-    newTag: latest
+    newTag: redis-sentinel-3
   - name: my-medusa-store-storefront
     newName: registry.deti/tenant-pisofire/storefront
-    newTag: latest
+    newTag: redis-sentinel-3

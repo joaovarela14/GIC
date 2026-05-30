@@ -16,7 +16,7 @@ through container ports. It checks:
 - Prometheus metrics endpoints
 - HPA and PodDisruptionBudget resources
 - PostgreSQL backup resources
-- Redis persistence resources
+- Redis persistence resources and, in the tenant cluster, Sentinel role/quorum checks
 - Medusa Admin login
 - checkout journey from product discovery to order creation
 - in-cluster Service DNS for Medusa and storefront
@@ -39,4 +39,5 @@ STOREFRONT_BASE_URL=http://pisofire.deti \
 ```
 
 The tenant smoke test uses Ingress URLs and validates the same functional path
-as the local test, including admin login and checkout.
+as the local test, including Redis Sentinel master discovery, admin login and
+checkout.
