@@ -1,16 +1,79 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
-import { buildRedisConnectionOptions } from "./src/lib/redis-options"
+import type { RedisOptions } from "ioredis"
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 const sharedRedisUrl = process.env.REDIS_URL
-const redisConnectionOptions = buildRedisConnectionOptions()
 const cookieSecure =
   process.env.COOKIE_SECURE !== undefined
     ? process.env.COOKIE_SECURE === "true"
     : process.env.NODE_ENV === "production"
 const cookieSameSite = (process.env.COOKIE_SAME_SITE ||
   (cookieSecure ? "none" : "lax")) as "strict" | "lax" | "none"
+
+const DEFAULT_SENTINEL_PORT = 26379
+
+function parseSentinelEndpoint(endpoint: string) {
+  const [host, portValue] = endpoint.trim().split(":")
+
+  if (!host) {
+    throw new Error("Redis Sentinel host cannot be empty")
+  }
+
+  const port = portValue ? Number(portValue) : DEFAULT_SENTINEL_PORT
+
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    throw new Error(`Invalid Redis Sentinel port for ${host}: ${portValue}`)
+  }
+
+  return {
+    host,
+    port,
+  }
+}
+
+function parseSentinelHosts(hosts?: string) {
+  if (!hosts) {
+    return []
+  }
+
+  return hosts
+    .split(",")
+    .map((endpoint) => endpoint.trim())
+    .filter(Boolean)
+    .map(parseSentinelEndpoint)
+}
+
+function buildRedisConnectionOptions(): RedisOptions {
+  const sentinels = parseSentinelHosts(process.env.REDIS_SENTINEL_HOSTS)
+  const sentinelName = process.env.REDIS_SENTINEL_NAME
+
+  if (!sentinels.length && !sentinelName) {
+    return {}
+  }
+
+  if (!sentinels.length || !sentinelName) {
+    throw new Error(
+      "Both REDIS_SENTINEL_HOSTS and REDIS_SENTINEL_NAME must be set for Redis Sentinel"
+    )
+  }
+
+  return {
+    sentinels,
+    name: sentinelName,
+    role: "master",
+    sentinelRetryStrategy: (attempts) => Math.min(attempts * 100, 2000),
+    reconnectOnError: (error) => {
+      if (error.message.includes("READONLY")) {
+        return 2
+      }
+
+      return false
+    },
+  }
+}
+
+const redisConnectionOptions = buildRedisConnectionOptions()
 
 module.exports = defineConfig({
   projectConfig: {

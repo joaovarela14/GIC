@@ -23,13 +23,7 @@ docker build --network=host -t "$MEDUSA_IMAGE" "$ROOT_DIR/my-medusa-store"
 echo "Building $STOREFRONT_IMAGE"
 docker build --network=host -t "$STOREFRONT_IMAGE" "$ROOT_DIR/my-medusa-storefront"
 
-echo "Pushing $MEDUSA_IMAGE"
-docker push "$MEDUSA_IMAGE"
-
-echo "Pushing $STOREFRONT_IMAGE"
-docker push "$STOREFRONT_IMAGE"
-
 printf '%s\n' \
-  "Images pushed:" \
+  "Images built:" \
   "  $MEDUSA_IMAGE" \
   "  $STOREFRONT_IMAGE"

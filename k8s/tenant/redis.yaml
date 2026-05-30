@@ -14,7 +14,7 @@ data:
     DATA_DIR="${REDIS_DATA_DIR:-/data}"
     REDIS_CONF="$DATA_DIR/redis.conf"
     SENTINEL_CONF="$DATA_DIR/sentinel.conf"
-    SELF_HOST="$POD_NAME.$HEADLESS_SERVICE"
+    SELF_HOST="$POD_NAME.$HEADLESS_SERVICE.$POD_NAMESPACE.svc.cluster.local"
 
     sentinel_host() {
       printf 'redis-%s.%s' "$1" "$HEADLESS_SERVICE"
@@ -86,7 +86,7 @@ data:
     REPLICAS="${REDIS_REPLICAS:-3}"
     DATA_DIR="${REDIS_DATA_DIR:-/data}"
     SENTINEL_CONF="$DATA_DIR/sentinel.conf"
-    SELF_HOST="$POD_NAME.$HEADLESS_SERVICE"
+    SELF_HOST="$POD_NAME.$HEADLESS_SERVICE.$POD_NAMESPACE.svc.cluster.local"
 
     sentinel_host() {
       printf 'redis-%s.%s' "$1" "$HEADLESS_SERVICE"
@@ -315,6 +315,7 @@ spec:
     - metadata:
         name: redis-data
       spec:
+        storageClassName: longhorn
         accessModes:
           - ReadWriteOnce
         resources:

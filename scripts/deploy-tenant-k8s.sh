@@ -119,11 +119,39 @@ if command -v kustomize >/dev/null 2>&1; then
       "my-medusa-store-storefront=$IMAGE_PREFIX/storefront:$IMAGE_TAG"
   )
 else
-  sed -i \
-    -e "s#registry.deti/tenant-pisofire/medusa#$IMAGE_PREFIX/medusa#g" \
-    -e "s#registry.deti/tenant-pisofire/storefront#$IMAGE_PREFIX/storefront#g" \
-    -e "s#newTag: latest#newTag: $IMAGE_TAG#g" \
-    "$OVERLAY_DIR/kustomization.yaml"
+  awk \
+    -v medusa_image="$IMAGE_PREFIX/medusa" \
+    -v storefront_image="$IMAGE_PREFIX/storefront" \
+    -v image_tag="$IMAGE_TAG" '
+      /^[[:space:]]*- name: my-medusa-store-medusa$/ {
+        target = "medusa"
+        print
+        next
+      }
+      /^[[:space:]]*- name: my-medusa-store-storefront$/ {
+        target = "storefront"
+        print
+        next
+      }
+      target == "medusa" && /^[[:space:]]*newName:/ {
+        sub(/newName:.*/, "newName: " medusa_image)
+        print
+        next
+      }
+      target == "storefront" && /^[[:space:]]*newName:/ {
+        sub(/newName:.*/, "newName: " storefront_image)
+        print
+        next
+      }
+      (target == "medusa" || target == "storefront") && /^[[:space:]]*newTag:/ {
+        sub(/newTag:.*/, "newTag: " image_tag)
+        print
+        target = ""
+        next
+      }
+      { print }
+    ' "$OVERLAY_DIR/kustomization.yaml" > "$OVERLAY_DIR/kustomization.yaml.tmp"
+  mv "$OVERLAY_DIR/kustomization.yaml.tmp" "$OVERLAY_DIR/kustomization.yaml"
 fi
 
 echo "Applying tenant overlay to namespace $NAMESPACE"
