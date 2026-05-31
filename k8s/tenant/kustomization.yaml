@@ -7,6 +7,8 @@ resources:
   - postgres.yaml
   - postgres-backup.yaml
   - redis.yaml
+  - minio.yaml
+  - minio-setup.yaml
   - medusa.yaml
   - medusa-worker.yaml
   - autoscaling.yaml

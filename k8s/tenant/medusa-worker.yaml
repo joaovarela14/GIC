@@ -83,6 +83,36 @@ spec:
                 configMapKeyRef:
                   name: pisofire-config
                   key: COOKIE_SAME_SITE
+            - name: S3_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: S3_ENDPOINT
+            - name: S3_FILE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: S3_FILE_URL
+            - name: S3_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: S3_REGION
+            - name: S3_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: pisofire-config
+                  key: S3_BUCKET
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: pisofire-secrets
+                  key: S3_ACCESS_KEY_ID
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pisofire-secrets
+                  key: S3_SECRET_ACCESS_KEY
             - name: MEDUSA_RUN_MIGRATIONS
               value: "false"
             - name: MEDUSA_RUN_SEED

@@ -102,7 +102,7 @@ if [ ! -f "$SECRETS_FILE" ]; then
   exit 1
 fi
 
-for required_key in POSTGRES_PASSWORD POSTGRES_REPLICATION_PASSWORD DATABASE_URL JWT_SECRET COOKIE_SECRET REVALIDATE_SECRET MEDUSA_ADMIN_EMAIL MEDUSA_ADMIN_PASSWORD; do
+for required_key in POSTGRES_PASSWORD POSTGRES_REPLICATION_PASSWORD DATABASE_URL JWT_SECRET COOKIE_SECRET REVALIDATE_SECRET MEDUSA_ADMIN_EMAIL MEDUSA_ADMIN_PASSWORD MINIO_ROOT_USER MINIO_ROOT_PASSWORD S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY; do
   if ! grep -q "^$required_key=" "$SECRETS_FILE"; then
     echo "Missing $required_key in $SECRETS_FILE" >&2
     exit 1
@@ -157,6 +157,7 @@ fi
 echo "Applying tenant overlay to namespace $NAMESPACE"
 kubectl_tenant delete job bootstrap-admin -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete job bootstrap-store -n "$NAMESPACE" --ignore-not-found
+kubectl_tenant delete job minio-setup -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete deployment postgres -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete deployment redis -n "$NAMESPACE" --ignore-not-found
 if ! kubectl_tenant apply -k "$OVERLAY_DIR"; then

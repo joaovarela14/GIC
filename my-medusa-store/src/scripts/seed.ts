@@ -27,6 +27,16 @@ import {
 } from "@medusajs/medusa/core-flows";
 import { ApiKey } from "../../.medusa/types/query-entry-points";
 
+const DEFAULT_SEED_IMAGE_BASE_URL =
+  "https://medusa-public-images.s3.eu-west-1.amazonaws.com";
+const seedImageBaseUrl = (
+  process.env.S3_FILE_URL || DEFAULT_SEED_IMAGE_BASE_URL
+).replace(/\/$/, "");
+
+function buildSeedImageUrl(filename: string) {
+  return `${seedImageBaseUrl}/${filename}`;
+}
+
 const updateStoreCurrencies = createWorkflow(
   "update-store-currencies",
   (input: {
@@ -389,16 +399,16 @@ export default async function seedDemoData({ container }: ExecArgs) {
           shipping_profile_id: shippingProfile.id,
           images: [
             {
-              url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/tee-black-front.png",
+              url: buildSeedImageUrl("tee-black-front.png"),
             },
             {
-              url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/tee-black-back.png",
+              url: buildSeedImageUrl("tee-black-back.png"),
             },
             {
-              url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/tee-white-front.png",
+              url: buildSeedImageUrl("tee-white-front.png"),
             },
             {
-              url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/tee-white-back.png",
+              url: buildSeedImageUrl("tee-white-back.png"),
             },
           ],
           options: [
@@ -576,10 +586,10 @@ export default async function seedDemoData({ container }: ExecArgs) {
           shipping_profile_id: shippingProfile.id,
           images: [
             {
-              url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/sweatshirt-vintage-front.png",
+              url: buildSeedImageUrl("sweatshirt-vintage-front.png"),
             },
             {
-              url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/sweatshirt-vintage-back.png",
+              url: buildSeedImageUrl("sweatshirt-vintage-back.png"),
             },
           ],
           options: [
@@ -677,10 +687,10 @@ export default async function seedDemoData({ container }: ExecArgs) {
           shipping_profile_id: shippingProfile.id,
           images: [
             {
-              url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/sweatpants-gray-front.png",
+              url: buildSeedImageUrl("sweatpants-gray-front.png"),
             },
             {
-              url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/sweatpants-gray-back.png",
+              url: buildSeedImageUrl("sweatpants-gray-back.png"),
             },
           ],
           options: [

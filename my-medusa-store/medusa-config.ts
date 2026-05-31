@@ -74,6 +74,32 @@ function buildRedisConnectionOptions(): RedisOptions {
 }
 
 const redisConnectionOptions = buildRedisConnectionOptions()
+const fileModule = process.env.S3_BUCKET
+  ? [
+      {
+        resolve: "@medusajs/file",
+        options: {
+          providers: [
+            {
+              resolve: "@medusajs/file-s3",
+              id: "s3",
+              options: {
+                file_url: process.env.S3_FILE_URL,
+                endpoint: process.env.S3_ENDPOINT,
+                bucket: process.env.S3_BUCKET,
+                region: process.env.S3_REGION,
+                access_key_id: process.env.S3_ACCESS_KEY_ID,
+                secret_access_key: process.env.S3_SECRET_ACCESS_KEY,
+                additional_client_config: {
+                  forcePathStyle: true,
+                },
+              },
+            },
+          ],
+        },
+      },
+    ]
+  : []
 
 module.exports = defineConfig({
   projectConfig: {
@@ -100,6 +126,7 @@ module.exports = defineConfig({
     },
   },
   modules: [
+    ...fileModule,
     {
       resolve: "@medusajs/medusa/caching",
       options: {
