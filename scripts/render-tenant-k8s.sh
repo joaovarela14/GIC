@@ -46,11 +46,13 @@ cp "$SECRETS_FILE" "$OVERLAY_DIR/tenant-secrets.env"
   if command -v kustomize >/dev/null 2>&1; then
     kustomize edit set image \
       "my-medusa-store-medusa=$IMAGE_PREFIX/medusa:$IMAGE_TAG" \
-      "my-medusa-store-storefront=$IMAGE_PREFIX/storefront:$IMAGE_TAG"
+      "my-medusa-store-storefront=$IMAGE_PREFIX/storefront:$IMAGE_TAG" \
+      "my-medusa-store-postgres-patroni=$IMAGE_PREFIX/postgres-patroni:$IMAGE_TAG"
   else
     awk \
       -v medusa_image="$IMAGE_PREFIX/medusa" \
       -v storefront_image="$IMAGE_PREFIX/storefront" \
+      -v postgres_image="$IMAGE_PREFIX/postgres-patroni" \
       -v image_tag="$IMAGE_TAG" '
         /^[[:space:]]*- name: my-medusa-store-medusa$/ {
           target = "medusa"
@@ -59,6 +61,11 @@ cp "$SECRETS_FILE" "$OVERLAY_DIR/tenant-secrets.env"
         }
         /^[[:space:]]*- name: my-medusa-store-storefront$/ {
           target = "storefront"
+          print
+          next
+        }
+        /^[[:space:]]*- name: my-medusa-store-postgres-patroni$/ {
+          target = "postgres"
           print
           next
         }
@@ -72,7 +79,12 @@ cp "$SECRETS_FILE" "$OVERLAY_DIR/tenant-secrets.env"
           print
           next
         }
-        (target == "medusa" || target == "storefront") && /^[[:space:]]*newTag:/ {
+        target == "postgres" && /^[[:space:]]*newName:/ {
+          sub(/newName:.*/, "newName: " postgres_image)
+          print
+          next
+        }
+        (target == "medusa" || target == "storefront" || target == "postgres") && /^[[:space:]]*newTag:/ {
           sub(/newTag:.*/, "newTag: " image_tag)
           print
           target = ""

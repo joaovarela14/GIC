@@ -34,3 +34,6 @@ images:
   - name: my-medusa-store-storefront
     newName: registry.deti/tenant-pisofire/storefront
     newTag: redis-sentinel-3
+  - name: my-medusa-store-postgres-patroni
+    newName: registry.deti/tenant-pisofire/postgres-patroni
+    newTag: redis-sentinel-3

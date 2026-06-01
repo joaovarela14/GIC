@@ -116,12 +116,14 @@ if command -v kustomize >/dev/null 2>&1; then
     cd "$OVERLAY_DIR"
     kustomize edit set image \
       "my-medusa-store-medusa=$IMAGE_PREFIX/medusa:$IMAGE_TAG" \
-      "my-medusa-store-storefront=$IMAGE_PREFIX/storefront:$IMAGE_TAG"
+      "my-medusa-store-storefront=$IMAGE_PREFIX/storefront:$IMAGE_TAG" \
+      "my-medusa-store-postgres-patroni=$IMAGE_PREFIX/postgres-patroni:$IMAGE_TAG"
   )
 else
   awk \
     -v medusa_image="$IMAGE_PREFIX/medusa" \
     -v storefront_image="$IMAGE_PREFIX/storefront" \
+    -v postgres_image="$IMAGE_PREFIX/postgres-patroni" \
     -v image_tag="$IMAGE_TAG" '
       /^[[:space:]]*- name: my-medusa-store-medusa$/ {
         target = "medusa"
@@ -130,6 +132,11 @@ else
       }
       /^[[:space:]]*- name: my-medusa-store-storefront$/ {
         target = "storefront"
+        print
+        next
+      }
+      /^[[:space:]]*- name: my-medusa-store-postgres-patroni$/ {
+        target = "postgres"
         print
         next
       }
@@ -143,7 +150,12 @@ else
         print
         next
       }
-      (target == "medusa" || target == "storefront") && /^[[:space:]]*newTag:/ {
+      target == "postgres" && /^[[:space:]]*newName:/ {
+        sub(/newName:.*/, "newName: " postgres_image)
+        print
+        next
+      }
+      (target == "medusa" || target == "storefront" || target == "postgres") && /^[[:space:]]*newTag:/ {
         sub(/newTag:.*/, "newTag: " image_tag)
         print
         target = ""
@@ -160,6 +172,7 @@ kubectl_tenant delete job bootstrap-store -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete job minio-setup -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete deployment postgres -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete deployment redis -n "$NAMESPACE" --ignore-not-found
+kubectl_tenant delete statefulset postgres -n "$NAMESPACE" --ignore-not-found
 if ! kubectl_tenant apply -k "$OVERLAY_DIR"; then
   echo "kubectl apply failed. Attempting application rollback." >&2
   rollback_app_deployments || true

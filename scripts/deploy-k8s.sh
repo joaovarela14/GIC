@@ -6,6 +6,7 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 NAMESPACE="${NAMESPACE:-pisofire}"
 MEDUSA_IMAGE="my-medusa-store-medusa:latest"
 STOREFRONT_IMAGE="my-medusa-store-storefront:latest"
+POSTGRES_PATRONI_IMAGE="my-medusa-store-postgres-patroni:latest"
 DEPENDENCY_IMAGES="postgres:15-alpine redis:7-alpine busybox:1.36 rancher/mirrored-library-busybox:1.36.1"
 APP_DEPLOYMENTS="medusa medusa-worker storefront"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-240s}"
@@ -120,9 +121,13 @@ docker build -t "$MEDUSA_IMAGE" "$ROOT_DIR/my-medusa-store"
 echo "Building $STOREFRONT_IMAGE"
 docker build -t "$STOREFRONT_IMAGE" "$ROOT_DIR/my-medusa-storefront"
 
+echo "Building $POSTGRES_PATRONI_IMAGE"
+docker build -t "$POSTGRES_PATRONI_IMAGE" "$ROOT_DIR/docker/postgres-patroni"
+
 echo "Importing images into k3d cluster $CLUSTER_NAME"
 k3d image import "$MEDUSA_IMAGE" -c "$CLUSTER_NAME"
 k3d image import "$STOREFRONT_IMAGE" -c "$CLUSTER_NAME"
+k3d image import "$POSTGRES_PATRONI_IMAGE" -c "$CLUSTER_NAME"
 
 NAMESPACE_EXISTS=false
 if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then

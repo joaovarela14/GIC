@@ -90,15 +90,17 @@ The backend and storefront start with two replicas and can scale to five when CP
 memory utilization crosses the configured HPA targets. The worker starts with one
 replica and can scale to three.
 
-Postgres runs as a two-pod StatefulSet with `postgres-0` as the writable primary
-and `postgres-1` as a standby replica. Redis runs as one master and two replicas
-with Sentinel quorum `2`; Medusa connects through Sentinel so Redis writes follow
-the promoted master after failover. PostgreSQL promotion remains manual.
+Postgres runs as a two-pod Patroni-managed StatefulSet. Patroni uses
+namespace-local Kubernetes objects for leader election, labels the writable pod
+with `role=primary`, and the `postgres` Service follows that label instead of a
+fixed pod ordinal. Redis runs as one master and two replicas with Sentinel quorum
+`2`; Medusa connects through Sentinel so Redis writes follow the promoted master
+after failover.
 
-Migrating from the older single-pod Postgres and Redis Deployments creates new
-StatefulSet PVCs. The old `postgres-data` and `redis-data` PVCs are not copied
-automatically, so take backups before deploying and restore data into the new
-primaries if tenant data must be preserved.
+Migrating from the older single-pod Postgres/Redis Deployments or fixed-primary
+Postgres StatefulSet creates/reuses StatefulSet PVCs. Existing data is not copied
+automatically between PVC naming schemes, so take backups before deploying and
+restore data into the new primaries if tenant data must be preserved.
 
 Useful Redis Sentinel checks after deployment:
 

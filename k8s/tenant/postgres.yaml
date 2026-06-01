@@ -1,3 +1,109 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgres-patroni
+  namespace: pisofire
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: postgres-patroni
+  namespace: pisofire
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["endpoints", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: postgres-patroni
+  namespace: pisofire
+subjects:
+  - kind: ServiceAccount
+    name: postgres-patroni
+    namespace: pisofire
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: postgres-patroni
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-patroni-config
+  namespace: pisofire
+data:
+  patroni.yml.tpl: |
+    scope: pisofire-postgres
+    name: ${POD_NAME}
+
+    restapi:
+      listen: 0.0.0.0:8008
+      connect_address: ${POD_IP}:8008
+
+    kubernetes:
+      namespace: ${POD_NAMESPACE}
+      use_endpoints: true
+      pod_ip: ${POD_IP}
+      ports:
+        - name: postgres
+          port: 5432
+      labels:
+        app: postgres
+        cluster-name: pisofire-postgres
+      scope_label: cluster-name
+      role_label: role
+      leader_label_value: primary
+      follower_label_value: replica
+
+    bootstrap:
+      dcs:
+        ttl: 30
+        loop_wait: 10
+        retry_timeout: 10
+        postgresql:
+          use_pg_rewind: true
+          use_slots: true
+          parameters:
+            wal_level: replica
+            hot_standby: "on"
+            max_wal_senders: 10
+            max_replication_slots: 10
+            wal_log_hints: "on"
+      initdb:
+        - encoding: UTF8
+        - data-checksums
+      pg_hba:
+        - local all all trust
+        - host all all 127.0.0.1/32 trust
+        - host all all ::1/128 trust
+        - host all all 0.0.0.0/0 scram-sha-256
+        - host replication replicator 0.0.0.0/0 scram-sha-256
+      post_init: /usr/local/bin/patroni-post-init.sh
+
+    postgresql:
+      listen: 0.0.0.0:5432
+      connect_address: ${POD_IP}:5432
+      data_dir: /var/lib/postgresql/data/pgdata
+      bin_dir: /usr/lib/postgresql/15/bin
+      pgpass: /tmp/pgpass
+      authentication:
+        superuser:
+          username: ${POSTGRES_USER}
+          password: ${POSTGRES_PASSWORD}
+        replication:
+          username: replicator
+          password: ${POSTGRES_REPLICATION_PASSWORD}
+      parameters:
+        unix_socket_directories: /var/run/postgresql
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -13,14 +119,18 @@ spec:
     metadata:
       labels:
         app: postgres
+        cluster-name: pisofire-postgres
     spec:
+      serviceAccountName: postgres-patroni
       containers:
         - name: postgres
-          image: postgres:15-alpine
+          image: my-medusa-store-postgres-patroni:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
               name: postgres
+            - containerPort: 8008
+              name: patroni
           env:
             - name: POSTGRES_DB
               valueFrom:
@@ -44,61 +154,24 @@ spec:
                   key: POSTGRES_REPLICATION_PASSWORD
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
-          command:
-            - sh
-            - -ec
-            - |
-              ordinal="${HOSTNAME##*-}"
-
-              if [ "$ordinal" = "0" ]; then
-                mkdir -p /docker-entrypoint-initdb.d
-                cat > /docker-entrypoint-initdb.d/10-replication-user.sh <<'EOF'
-              #!/bin/sh
-              set -eu
-              echo "host replication replicator all scram-sha-256" >> "$PGDATA/pg_hba.conf"
-              psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<SQL
-              DO \$\$
-              BEGIN
-                IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'replicator') THEN
-                  CREATE ROLE replicator WITH REPLICATION LOGIN PASSWORD '${POSTGRES_REPLICATION_PASSWORD}';
-                END IF;
-              END
-              \$\$;
-              SQL
-              EOF
-                chmod +x /docker-entrypoint-initdb.d/10-replication-user.sh
-
-                exec docker-entrypoint.sh postgres \
-                  -c listen_addresses='*' \
-                  -c wal_level=replica \
-                  -c max_wal_senders=10 \
-                  -c max_replication_slots=10 \
-                  -c hot_standby=on
-              fi
-
-              if [ ! -s "$PGDATA/PG_VERSION" ]; then
-                rm -rf "$PGDATA"/*
-                until PGPASSWORD="$POSTGRES_REPLICATION_PASSWORD" pg_basebackup \
-                  -h postgres-0.postgres-headless \
-                  -D "$PGDATA" \
-                  -U replicator \
-                  -Fp \
-                  -Xs \
-                  -P \
-                  -R; do
-                  echo "Waiting for primary Postgres to accept replication connections..."
-                  sleep 5
-                done
-                chown -R postgres:postgres "$PGDATA"
-                chmod 700 "$PGDATA"
-              fi
-
-              exec docker-entrypoint.sh postgres \
-                -c listen_addresses='*' \
-                -c hot_standby=on
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+            - name: patroni-config
+              mountPath: /etc/patroni
+              readOnly: true
           resources:
             requests:
               cpu: 250m
@@ -107,25 +180,26 @@ spec:
               cpu: "1"
               memory: 1Gi
           readinessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            httpGet:
+              path: /readiness
+              port: 8008
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
-            initialDelaySeconds: 20
+            httpGet:
+              path: /liveness
+              port: 8008
+            initialDelaySeconds: 30
             periodSeconds: 20
+      volumes:
+        - name: patroni-config
+          configMap:
+            name: postgres-patroni-config
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
       spec:
+        storageClassName: longhorn-rs
         accessModes:
           - ReadWriteOnce
         resources:
@@ -141,10 +215,14 @@ spec:
   clusterIP: None
   selector:
     app: postgres
+    cluster-name: pisofire-postgres
   ports:
     - name: postgres
       port: 5432
       targetPort: 5432
+    - name: patroni
+      port: 8008
+      targetPort: 8008
 ---
 apiVersion: v1
 kind: Service
@@ -154,7 +232,8 @@ metadata:
 spec:
   selector:
     app: postgres
-    statefulset.kubernetes.io/pod-name: postgres-0
+    cluster-name: pisofire-postgres
+    role: primary
   ports:
     - name: postgres
       port: 5432
@@ -168,7 +247,8 @@ metadata:
 spec:
   selector:
     app: postgres
-    statefulset.kubernetes.io/pod-name: postgres-1
+    cluster-name: pisofire-postgres
+    role: replica
   ports:
     - name: postgres
       port: 5432

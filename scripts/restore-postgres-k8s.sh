@@ -77,8 +77,21 @@ fi
 require_command kubectl
 validate_context
 
-kubectl_cmd get deployment -n "$NAMESPACE" postgres >/dev/null
+kubectl_cmd get statefulset -n "$NAMESPACE" postgres >/dev/null
 kubectl_cmd get pvc -n "$NAMESPACE" postgres-backups >/dev/null
+
+MEDUSA_REPLICAS="$(kubectl_cmd get deployment -n "$NAMESPACE" medusa -o jsonpath='{.spec.replicas}' 2>/dev/null || true)"
+MEDUSA_WORKER_REPLICAS="$(kubectl_cmd get deployment -n "$NAMESPACE" medusa-worker -o jsonpath='{.spec.replicas}' 2>/dev/null || true)"
+STOREFRONT_REPLICAS="$(kubectl_cmd get deployment -n "$NAMESPACE" storefront -o jsonpath='{.spec.replicas}' 2>/dev/null || true)"
+
+MEDUSA_REPLICAS="${MEDUSA_REPLICAS:-1}"
+MEDUSA_WORKER_REPLICAS="${MEDUSA_WORKER_REPLICAS:-1}"
+STOREFRONT_REPLICAS="${STOREFRONT_REPLICAS:-1}"
+
+echo "Scaling application deployments down before restore"
+kubectl_cmd scale -n "$NAMESPACE" deployment/medusa --replicas=0 >/dev/null
+kubectl_cmd scale -n "$NAMESPACE" deployment/medusa-worker --replicas=0 >/dev/null
+kubectl_cmd scale -n "$NAMESPACE" deployment/storefront --replicas=0 >/dev/null
 
 job_name="postgres-restore-$(date -u +%Y%m%d%H%M%S)"
 
@@ -172,12 +185,19 @@ EOF
 if ! kubectl_cmd wait -n "$NAMESPACE" --for=condition=complete --timeout="$RESTORE_TIMEOUT" "job/$job_name" >/dev/null; then
   echo "Restore job did not complete: $job_name" >&2
   kubectl_cmd logs -n "$NAMESPACE" "job/$job_name" >&2 || true
+  echo "Restoring application deployment replicas after failed restore" >&2
+  kubectl_cmd scale -n "$NAMESPACE" deployment/medusa --replicas="$MEDUSA_REPLICAS" >/dev/null || true
+  kubectl_cmd scale -n "$NAMESPACE" deployment/medusa-worker --replicas="$MEDUSA_WORKER_REPLICAS" >/dev/null || true
+  kubectl_cmd scale -n "$NAMESPACE" deployment/storefront --replicas="$STOREFRONT_REPLICAS" >/dev/null || true
   exit 1
 fi
 
 kubectl_cmd logs -n "$NAMESPACE" "job/$job_name"
 
-echo "Restarting application deployments after restore"
+echo "Restoring application deployment replicas after restore"
+kubectl_cmd scale -n "$NAMESPACE" deployment/medusa --replicas="$MEDUSA_REPLICAS" >/dev/null
+kubectl_cmd scale -n "$NAMESPACE" deployment/medusa-worker --replicas="$MEDUSA_WORKER_REPLICAS" >/dev/null
+kubectl_cmd scale -n "$NAMESPACE" deployment/storefront --replicas="$STOREFRONT_REPLICAS" >/dev/null
 kubectl_cmd rollout restart -n "$NAMESPACE" deployment/medusa deployment/medusa-worker deployment/storefront >/dev/null
 kubectl_cmd rollout status -n "$NAMESPACE" --timeout=240s deployment/medusa deployment/medusa-worker deployment/storefront >/dev/null
 

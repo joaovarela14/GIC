@@ -39,22 +39,34 @@ kubectl --kubeconfig "$KUBECONFIG_FILE" rollout status -n "$NAMESPACE" --timeout
 kubectl --kubeconfig "$KUBECONFIG_FILE" rollout status -n "$NAMESPACE" --timeout=240s statefulset/redis >/dev/null
 kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=available --timeout=240s deployment/medusa deployment/medusa-worker deployment/storefront >/dev/null
 
-echo "Checking PostgreSQL primary and standby roles"
-POSTGRES_PRIMARY_RECOVERY="$(
-  kubectl --kubeconfig "$KUBECONFIG_FILE" exec -n "$NAMESPACE" postgres-0 -- sh -ec \
-    'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT pg_is_in_recovery()"' \
-    2>/dev/null | tr -d '[:space:]'
+echo "Checking PostgreSQL Patroni primary and replica roles"
+kubectl --kubeconfig "$KUBECONFIG_FILE" get pods -n "$NAMESPACE" -l app=postgres --show-labels
+POSTGRES_PRIMARY_POD="$(
+  kubectl --kubeconfig "$KUBECONFIG_FILE" get pod -n "$NAMESPACE" -l app=postgres,cluster-name=pisofire-postgres,role=primary \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
 )"
-POSTGRES_REPLICA_RECOVERY="$(
-  kubectl --kubeconfig "$KUBECONFIG_FILE" exec -n "$NAMESPACE" postgres-1 -- sh -ec \
+POSTGRES_REPLICA_COUNT="$(
+  kubectl --kubeconfig "$KUBECONFIG_FILE" get pod -n "$NAMESPACE" -l app=postgres,cluster-name=pisofire-postgres,role=replica \
+    --no-headers 2>/dev/null | wc -l | tr -d '[:space:]'
+)"
+
+if [ -z "$POSTGRES_PRIMARY_POD" ] || [ "${POSTGRES_REPLICA_COUNT:-0}" -lt 1 ]; then
+  echo "Unexpected PostgreSQL Patroni labels." >&2
+  echo "Primary pod: ${POSTGRES_PRIMARY_POD:-<none>}" >&2
+  echo "Replica count: ${POSTGRES_REPLICA_COUNT:-0}" >&2
+  kubectl --kubeconfig "$KUBECONFIG_FILE" get pods -n "$NAMESPACE" -l app=postgres --show-labels >&2 || true
+  exit 1
+fi
+
+POSTGRES_PRIMARY_RECOVERY="$(
+  kubectl --kubeconfig "$KUBECONFIG_FILE" exec -n "$NAMESPACE" "$POSTGRES_PRIMARY_POD" -- sh -ec \
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT pg_is_in_recovery()"' \
     2>/dev/null | tr -d '[:space:]'
 )"
 
-if [ "$POSTGRES_PRIMARY_RECOVERY" != "f" ] || [ "$POSTGRES_REPLICA_RECOVERY" != "t" ]; then
-  echo "Unexpected PostgreSQL replication roles." >&2
-  echo "postgres-0 pg_is_in_recovery(): ${POSTGRES_PRIMARY_RECOVERY:-<empty>}" >&2
-  echo "postgres-1 pg_is_in_recovery(): ${POSTGRES_REPLICA_RECOVERY:-<empty>}" >&2
+if [ "$POSTGRES_PRIMARY_RECOVERY" != "f" ]; then
+  echo "Unexpected PostgreSQL primary recovery state." >&2
+  echo "$POSTGRES_PRIMARY_POD pg_is_in_recovery(): ${POSTGRES_PRIMARY_RECOVERY:-<empty>}" >&2
   exit 1
 fi
 
@@ -287,7 +299,8 @@ printf '%s\n' "Tenant smoke test passed" \
   "Storefront metrics: $STOREFRONT_METRICS_STATUS" \
   "Autoscaling controls: present" \
   "PostgreSQL backup controls: present" \
-  "PostgreSQL replication: primary postgres-0, standby postgres-1" \
+  "PostgreSQL Patroni primary: $POSTGRES_PRIMARY_POD" \
+  "PostgreSQL Patroni replicas: $POSTGRES_REPLICA_COUNT" \
   "Stateful disruption controls: present" \
   "Redis Sentinel master: $REDIS_SENTINEL_MASTER" \
   "Redis Sentinel HA: one master, two replicas" \

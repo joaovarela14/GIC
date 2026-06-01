@@ -2,17 +2,23 @@
 
 ## PostgreSQL
 
-PostgreSQL runs as a two-pod StatefulSet with a fixed primary and one standby
-replica. It is replicated, but it does not provide automatic failover.
+PostgreSQL runs as a two-pod Patroni-managed StatefulSet. Patroni uses
+namespace-local Kubernetes objects for leader election, promotes a replica after
+primary failure, and labels pods so the `postgres` Service follows the current
+primary.
 
 Hardening added:
 
 - PostgreSQL uses one PVC per StatefulSet pod.
-- `postgres-0` is the writable primary and `postgres-1` is the standby.
+- The current writable primary is the pod labeled `role=primary`.
+- At least one standby replica is labeled `role=replica` when both pods are
+  healthy.
 - A `postgres-backup` CronJob creates nightly `pg_dump -Fc` backups.
 - Backups are stored in the `postgres-backups` PVC.
 - `latest.dump` points to the newest dump.
-- A manual restore script can restore the database from a dump.
+- A manual restore script scales application Deployments down, restores the
+  database from a dump through the `postgres` writer Service, and scales the
+  Deployments back up.
 - A PodDisruptionBudget with `maxUnavailable: 0` blocks voluntary evictions.
 
 Commands:
@@ -26,8 +32,10 @@ CONFIRM_RESTORE=I_UNDERSTAND_THIS_OVERWRITES_POSTGRES \
 
 Current limits:
 
-- Automatic PostgreSQL failover would require managed PostgreSQL or a
-  PostgreSQL operator with leader election and safe primary promotion.
+- PostgreSQL HA is namespace-local and does not protect against complete cluster
+  or storage loss.
+- Replication is asynchronous, so the latest transactions can be lost if the
+  primary fails before replicas receive WAL.
 
 ## Redis
 
