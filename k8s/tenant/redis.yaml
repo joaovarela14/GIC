@@ -17,7 +17,7 @@ data:
     SELF_HOST="$POD_NAME.$HEADLESS_SERVICE.$POD_NAMESPACE.svc.cluster.local"
 
     sentinel_host() {
-      printf 'redis-%s.%s' "$1" "$HEADLESS_SERVICE"
+      printf 'redis-%s.%s.%s.svc.cluster.local' "$1" "$HEADLESS_SERVICE" "$POD_NAMESPACE"
     }
 
     discover_master_from_sentinel() {
@@ -43,7 +43,7 @@ data:
 
     is_self_master() {
       case "$1" in
-        "$POD_NAME"|"$SELF_HOST"|"$SELF_HOST.$POD_NAMESPACE"|"$SELF_HOST.$POD_NAMESPACE.svc"|"$SELF_HOST.$POD_NAMESPACE.svc.cluster.local"|"$POD_IP")
+        "$POD_NAME"|"$POD_NAME.$HEADLESS_SERVICE"|"$SELF_HOST"|"$POD_IP")
           return 0
           ;;
       esac
@@ -58,7 +58,7 @@ data:
       master_host="$(discover_master_from_config || true)"
     fi
     if [ -z "$master_host" ]; then
-      master_host="redis-0.$HEADLESS_SERVICE"
+      master_host="redis-0.$HEADLESS_SERVICE.$POD_NAMESPACE.svc.cluster.local"
     fi
 
     cat > "$REDIS_CONF" <<EOF
@@ -89,7 +89,7 @@ data:
     SELF_HOST="$POD_NAME.$HEADLESS_SERVICE.$POD_NAMESPACE.svc.cluster.local"
 
     sentinel_host() {
-      printf 'redis-%s.%s' "$1" "$HEADLESS_SERVICE"
+      printf 'redis-%s.%s.%s.svc.cluster.local' "$1" "$HEADLESS_SERVICE" "$POD_NAMESPACE"
     }
 
     discover_master_from_sentinel() {
@@ -131,7 +131,7 @@ data:
       master_host="$(discover_master_from_config || true)"
     fi
     if [ -z "$master_host" ]; then
-      master_host="redis-0.$HEADLESS_SERVICE"
+      master_host="redis-0.$HEADLESS_SERVICE.$POD_NAMESPACE.svc.cluster.local"
     fi
 
     if [ ! -f "$SENTINEL_CONF" ]; then
@@ -163,9 +163,7 @@ data:
     set_or_add_line "^sentinel failover-timeout $MASTER_NAME " "sentinel failover-timeout $MASTER_NAME 30000"
     set_or_add_line "^sentinel parallel-syncs $MASTER_NAME " "sentinel parallel-syncs $MASTER_NAME 1"
 
-    if ! grep -q "^sentinel monitor $MASTER_NAME " "$SENTINEL_CONF"; then
-      printf 'sentinel monitor %s %s 6379 2\n' "$MASTER_NAME" "$master_host" >> "$SENTINEL_CONF"
-    fi
+    set_or_add_line "^sentinel monitor $MASTER_NAME " "sentinel monitor $MASTER_NAME $master_host 6379 2"
 
     exec redis-server "$SENTINEL_CONF" --sentinel
 ---
