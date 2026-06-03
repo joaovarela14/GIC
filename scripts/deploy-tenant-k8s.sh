@@ -172,7 +172,6 @@ kubectl_tenant delete job bootstrap-store -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete job minio-setup -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete deployment postgres -n "$NAMESPACE" --ignore-not-found
 kubectl_tenant delete deployment redis -n "$NAMESPACE" --ignore-not-found
-kubectl_tenant delete statefulset postgres -n "$NAMESPACE" --ignore-not-found
 if ! kubectl_tenant apply -k "$OVERLAY_DIR"; then
   echo "kubectl apply failed. Attempting application rollback." >&2
   rollback_app_deployments || true

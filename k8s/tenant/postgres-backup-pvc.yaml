@@ -4,7 +4,6 @@ metadata:
   name: postgres-backups
   namespace: pisofire
 spec:
-  storageClassName: longhorn-rs
   accessModes:
     - ReadWriteOnce
   resources:

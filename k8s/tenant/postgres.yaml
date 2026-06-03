@@ -199,7 +199,6 @@ spec:
     - metadata:
         name: postgres-data
       spec:
-        storageClassName: longhorn-rs
         accessModes:
           - ReadWriteOnce
         resources:

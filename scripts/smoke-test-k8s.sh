@@ -162,10 +162,15 @@ POSTGRES_REPLICA_COUNT="$(
   kubectl get pod -n "$NAMESPACE" -l app=postgres,cluster-name=pisofire-postgres,role=replica \
     --no-headers 2>/dev/null | wc -l | tr -d '[:space:]'
 )"
+POSTGRES_REPLICA_POD="$(
+  kubectl get pod -n "$NAMESPACE" -l app=postgres,cluster-name=pisofire-postgres,role=replica \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+)"
 
-if [ -z "$POSTGRES_PRIMARY_POD" ] || [ "${POSTGRES_REPLICA_COUNT:-0}" -lt 1 ]; then
+if [ -z "$POSTGRES_PRIMARY_POD" ] || [ -z "$POSTGRES_REPLICA_POD" ] || [ "${POSTGRES_REPLICA_COUNT:-0}" -lt 1 ]; then
   echo "Unexpected PostgreSQL Patroni labels." >&2
   echo "Primary pod: ${POSTGRES_PRIMARY_POD:-<none>}" >&2
+  echo "Replica pod: ${POSTGRES_REPLICA_POD:-<none>}" >&2
   echo "Replica count: ${POSTGRES_REPLICA_COUNT:-0}" >&2
   kubectl get pods -n "$NAMESPACE" -l app=postgres --show-labels >&2 || true
   exit 1
@@ -176,10 +181,16 @@ POSTGRES_PRIMARY_RECOVERY="$(
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT pg_is_in_recovery()"' \
     2>/dev/null | tr -d '[:space:]'
 )"
+POSTGRES_REPLICA_RECOVERY="$(
+  kubectl exec -n "$NAMESPACE" "$POSTGRES_REPLICA_POD" -- sh -ec \
+    'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT pg_is_in_recovery()"' \
+    2>/dev/null | tr -d '[:space:]'
+)"
 
-if [ "$POSTGRES_PRIMARY_RECOVERY" != "f" ]; then
-  echo "Unexpected PostgreSQL primary recovery state." >&2
+if [ "$POSTGRES_PRIMARY_RECOVERY" != "f" ] || [ "$POSTGRES_REPLICA_RECOVERY" != "t" ]; then
+  echo "Unexpected PostgreSQL recovery states." >&2
   echo "$POSTGRES_PRIMARY_POD pg_is_in_recovery(): ${POSTGRES_PRIMARY_RECOVERY:-<empty>}" >&2
+  echo "$POSTGRES_REPLICA_POD pg_is_in_recovery(): ${POSTGRES_REPLICA_RECOVERY:-<empty>}" >&2
   exit 1
 fi
 

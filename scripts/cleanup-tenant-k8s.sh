@@ -63,6 +63,11 @@ kubectl_tenant delete \
   secret/pisofire-secrets \
   -n "$NAMESPACE" --ignore-not-found
 
+echo "Deleting Patroni Kubernetes DCS objects in namespace $NAMESPACE"
+kubectl_tenant delete endpoints,configmaps \
+  -l app=postgres,cluster-name=pisofire-postgres \
+  -n "$NAMESPACE" --ignore-not-found
+
 echo "Deleting tenant PVCs in namespace $NAMESPACE"
 kubectl_tenant delete pvc \
   minio-data \
