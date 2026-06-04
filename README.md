@@ -1,5 +1,9 @@
 # PisoFire
 
+## Report
+
+**The report is here:** [PisoFireM2Report](PisoFireM2Report.pdf)
+
 PisoFire is an operations-first SRE project for a flash-sale e-commerce store.
 The application uses MedusaJS for the backend, a Next.js storefront, PostgreSQL,
 Redis, and Kubernetes manifests for local and department-cluster deployments.
