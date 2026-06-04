@@ -50,13 +50,13 @@ spec:
 
                   mkdir -p "$backup_dir"
                   echo "Waiting for PostgreSQL to accept connections..."
-                  until pg_isready -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
+                  until pg_isready -h postgres-primary -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
                     sleep 5
                   done
 
                   echo "Writing backup to $backup_file"
                   pg_dump \
-                    -h postgres \
+                    -h postgres-primary \
                     -U "$POSTGRES_USER" \
                     -d "$POSTGRES_DB" \
                     -Fc \

@@ -211,21 +211,20 @@ Run the failure-injection check:
 It deletes one Medusa pod and one storefront pod, verifies both Services from inside
 the cluster, and waits for the Deployments to recover.
 
-Postgres runs as a two-pod StatefulSet: `postgres-0` is the writable primary and
-`postgres-1` follows it as a standby replica. The `postgres` Service points only
-at `postgres-0`, so Medusa keeps writing to a single primary endpoint. This does
-not include automatic failover; promotion and Service switching would still be a
-manual recovery step. Redis remains a single-instance stateful dependency with a
-PVC and AOF enabled.
+Postgres runs as a two-pod Patroni-managed StatefulSet. Patroni uses
+namespace-local Kubernetes objects for leader election, labels the writable pod
+with `role=primary`, and the `postgres` Service follows that label instead of a
+fixed pod ordinal. `postgres-replica` selects pods labeled `role=replica`. Redis
+remains a single-instance stateful dependency with a PVC and AOF enabled.
 
-Migrating from the older single-pod Postgres Deployment creates new StatefulSet
-PVCs named from the `postgres-data` volume claim template. The old `postgres-data`
-PVC is not copied automatically. Take a backup before deploying this change and
-restore it into the new primary if existing data must be preserved.
+Migrating from the older single-pod Postgres Deployment or the fixed-primary
+StatefulSet creates/reuses PVCs named from the `postgres-data` volume claim
+template. Take a backup before deploying this change. For the cleanest migration,
+use fresh PostgreSQL PVCs and restore the dump into the Patroni primary.
 
-Full automatic database/cache HA is still a known limit. A production version
-should use managed Postgres/Redis services or Kubernetes operators that handle
-leader election, failover, backups and client routing.
+Full automatic cache HA is still a known limit in the base manifest. A production
+version should use managed stateful services or operators where cluster-wide
+installation is acceptable.
 
 ## PostgreSQL Backup and Restore
 
@@ -253,9 +252,10 @@ CONFIRM_RESTORE=I_UNDERSTAND_THIS_OVERWRITES_POSTGRES \
   ./scripts/restore-postgres-k8s.sh latest.dump
 ```
 
-The restore script creates a one-shot Kubernetes Job, runs `dropdb --force`,
-recreates the database, restores with `pg_restore`, and restarts the application
-Deployments afterwards.
+The restore script scales the application Deployments down, creates a one-shot
+Kubernetes Job, runs `dropdb --force`, recreates the database through the
+`postgres` writer Service, restores with `pg_restore`, and restarts the
+application Deployments afterwards.
 
 Service-level checks from inside the cluster:
 
