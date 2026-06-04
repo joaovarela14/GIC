@@ -8,6 +8,7 @@ RESTORE_TIMEOUT="${RESTORE_TIMEOUT:-600s}"
 KUBECONFIG_FILE="${KUBECONFIG_FILE:-}"
 EXPECTED_CONTEXT="${EXPECTED_CONTEXT:-}"
 CONFIRM_RESTORE="${CONFIRM_RESTORE:-}"
+POSTGRES_HOST="${POSTGRES_HOST:-postgres-primary}"
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -132,6 +133,8 @@ spec:
                   key: POSTGRES_PASSWORD
             - name: BACKUP_FILE
               value: "$BACKUP_FILE"
+            - name: POSTGRES_HOST
+              value: "$POSTGRES_HOST"
           command:
             - sh
             - -ec
@@ -145,26 +148,26 @@ spec:
               fi
 
               echo "Waiting for PostgreSQL to accept connections..."
-              until pg_isready -h postgres -U "\$POSTGRES_USER" -d postgres; do
+              until pg_isready -h "\$POSTGRES_HOST" -U "\$POSTGRES_USER" -d postgres; do
                 sleep 5
               done
 
               echo "Dropping database \$POSTGRES_DB"
-              dropdb -h postgres -U "\$POSTGRES_USER" --force --if-exists "\$POSTGRES_DB"
+              dropdb -h "\$POSTGRES_HOST" -U "\$POSTGRES_USER" --force --if-exists "\$POSTGRES_DB"
 
               echo "Creating database \$POSTGRES_DB"
-              createdb -h postgres -U "\$POSTGRES_USER" "\$POSTGRES_DB"
+              createdb -h "\$POSTGRES_HOST" -U "\$POSTGRES_USER" "\$POSTGRES_DB"
 
               echo "Restoring \$backup_path"
               pg_restore \
-                -h postgres \
+                -h "\$POSTGRES_HOST" \
                 -U "\$POSTGRES_USER" \
                 -d "\$POSTGRES_DB" \
                 --no-owner \
                 --no-acl \
                 "\$backup_path"
 
-              psql -h postgres -U "\$POSTGRES_USER" -d "\$POSTGRES_DB" -tAc 'SELECT 1' >/dev/null
+              psql -h "\$POSTGRES_HOST" -U "\$POSTGRES_USER" -d "\$POSTGRES_DB" -tAc 'SELECT 1' >/dev/null
               echo "Restore completed from \$backup_path"
           volumeMounts:
             - name: postgres-backups

@@ -6,7 +6,7 @@ metadata:
 data:
   POSTGRES_DB: medusa-store
   POSTGRES_USER: postgres
-  DATABASE_URL: postgres://postgres:postgres@postgres:5432/medusa-store
+  DATABASE_URL: postgres://postgres:postgres@postgres-primary:5432/medusa-store
   REDIS_URL: redis://redis:6379
   CACHE_REDIS_URL: redis://redis:6379
   EVENTS_REDIS_URL: redis://redis:6379

@@ -36,7 +36,7 @@ The overlay generates a Kubernetes Secret named `pisofire-secrets` from this loc
 
 ```text
 POSTGRES_PASSWORD=<password>
-DATABASE_URL=postgres://postgres:<password>@postgres:5432/medusa-store
+DATABASE_URL=postgres://postgres:<password>@postgres-primary:5432/medusa-store
 ```
 
 ## Images

@@ -226,6 +226,21 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: postgres-primary
+  namespace: pisofire
+spec:
+  selector:
+    app: postgres
+    cluster-name: pisofire-postgres
+    role: primary
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: postgres
   namespace: pisofire
 spec:
