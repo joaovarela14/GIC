@@ -87,8 +87,10 @@ kubectl --kubeconfig "$KUBECONFIG_FILE" wait -n "$NAMESPACE" --for=condition=com
 
 echo "Checking autoscaling and disruption controls"
 kubectl --kubeconfig "$KUBECONFIG_FILE" get hpa -n "$NAMESPACE" medusa storefront medusa-worker >/dev/null
+PDB_STATUS="present"
 if ! kubectl --kubeconfig "$KUBECONFIG_FILE" get pdb -n "$NAMESPACE" medusa storefront medusa-worker postgres redis >/dev/null 2>&1; then
-  echo "PodDisruptionBudgets are not present; tenant RBAC does not allow creating them." >&2
+  echo "PodDisruptionBudgets are not present; the shared DETI cluster tenant RBAC does not allow creating them." >&2
+  PDB_STATUS="not present (shared DETI cluster RBAC limitation)"
 fi
 kubectl --kubeconfig "$KUBECONFIG_FILE" get cronjob -n "$NAMESPACE" postgres-backup >/dev/null
 kubectl --kubeconfig "$KUBECONFIG_FILE" get pvc -n "$NAMESPACE" postgres-backups >/dev/null
@@ -312,7 +314,7 @@ printf '%s\n' "Tenant smoke test passed" \
   "PostgreSQL backup controls: present" \
   "PostgreSQL Patroni primary: $POSTGRES_PRIMARY_POD" \
   "PostgreSQL Patroni replicas: $POSTGRES_REPLICA_COUNT" \
-  "Stateful disruption controls: present" \
+  "PodDisruptionBudgets: $PDB_STATUS" \
   "Redis Sentinel master: $REDIS_SENTINEL_MASTER" \
   "Redis Sentinel HA: one master, two replicas" \
   "Admin authentication: passed" \

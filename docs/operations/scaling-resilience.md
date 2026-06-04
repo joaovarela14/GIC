@@ -13,7 +13,12 @@ Medusa and storefront also use:
 
 - rolling updates with `maxUnavailable: 0`
 - topology spread preferences
-- PodDisruptionBudgets
+- PodDisruptionBudgets in the local/base manifests
+
+The tenant overlay omits PodDisruptionBudgets because this is a shared DETI
+department cluster and the tenant service account cannot create
+`poddisruptionbudgets.policy`. This is a shared-cluster RBAC limitation, not an
+application design choice.
 
 ## Useful tests
 

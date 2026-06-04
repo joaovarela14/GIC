@@ -14,7 +14,8 @@ through container ports. It checks:
 - bootstrap jobs
 - health and readiness endpoints
 - Prometheus metrics endpoints
-- HPA and PodDisruptionBudget resources
+- HPA resources
+- PodDisruptionBudget resources in the local/base manifests
 - PostgreSQL backup resources
 - Redis persistence resources and, in the tenant cluster, Sentinel role/quorum checks
 - Medusa Admin login
@@ -40,4 +41,5 @@ STOREFRONT_BASE_URL=http://pisofire.deti \
 
 The tenant smoke test uses Ingress URLs and validates the same functional path
 as the local test, including Redis Sentinel master discovery, admin login and
-checkout.
+checkout. It reports missing PodDisruptionBudgets as a shared DETI cluster RBAC
+limitation, because the tenant service account cannot create them.

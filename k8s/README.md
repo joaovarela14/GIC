@@ -173,7 +173,8 @@ calculation depends on requests. Medusa and storefront also have:
 
 - rolling updates with `maxUnavailable: 0`
 - topology spread preferences by node hostname
-- PodDisruptionBudgets keeping at least one pod available during voluntary disruptions
+- PodDisruptionBudgets keeping at least one pod available during voluntary
+  disruptions in the local/base manifests
 
 Check the controls:
 
@@ -335,7 +336,9 @@ kubectl logs -n pisofire deployment/storefront
 ## Current Limits
 
 - Medusa and the storefront are replicated and autoscaled, but the local cluster is still single-node.
-- Postgres has one primary and one standby replica, but failover is manual.
+- Postgres has one primary and one standby replica managed by Patroni, with
+  automatic pod-level failover. It is still limited by the single local cluster
+  and asynchronous replication.
 - Redis is single-instance with PVC/AOF persistence, but no Sentinel or Redis Cluster failover.
 - Store and admin bootstrap depend on one-shot Kubernetes jobs.
 - The stack is still a local single-node baseline, not a production-ready deployment.

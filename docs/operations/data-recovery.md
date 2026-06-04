@@ -19,7 +19,10 @@ Hardening added:
 - A manual restore script scales application Deployments down, restores the
   database from a dump through the `postgres` writer Service, and scales the
   Deployments back up.
-- A PodDisruptionBudget with `maxUnavailable: 0` blocks voluntary evictions.
+- In the local/base manifests, a PodDisruptionBudget with `maxUnavailable: 0`
+  blocks voluntary PostgreSQL evictions. The tenant overlay omits PDBs because
+  this is a shared DETI department cluster and the tenant service account cannot
+  create them.
 
 Commands:
 
@@ -36,6 +39,9 @@ Current limits:
   or storage loss.
 - Replication is asynchronous, so the latest transactions can be lost if the
   primary fails before replicas receive WAL.
+- Restore is deliberately manual. It proves disaster recovery when executed,
+  but it is not automatic failover and should be captured as separate evidence
+  for grading.
 
 ## Redis
 
